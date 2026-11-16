@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Teste: tela completa com dados em memória</title>
+</head>
+<body>
+<script src="apoio.js"></script>
+<iframe id="app" src="../app/index.html" style="width:1600px;height:900px;border:0"></iframe>
+<script>
+// Roteiro da tela (etapa 2): abre o app com a camada em memória e os dados FICTÍCIOS, e usa a tela
+// como uma pessoa usaria: seleciona células, preenche o painel, clica nos botões.
+var W, D, App, Dados;
+function $(id) { return D.getElementById(id); }
+function q(sel) { return D.querySelector(sel); }
+function qa(sel) { return Array.prototype.slice.call(D.querySelectorAll(sel)); }
+function clica(alvo) {
+  var b = typeof alvo === 'string' ? q(alvo) : alvo;
+  if (!b) throw new Error('não achei ' + alvo);
+  b.dispatchEvent(new W.MouseEvent('click', { bubbles: true }));
+}
+function mouse(td) { td.dispatchEvent(new W.MouseEvent('mousedown', { bubbles: true })); }
+function tecla(k, alvo) { (alvo || D.body).dispatchEvent(new W.KeyboardEvent('keydown', { key: k, bubbles: true })); }
+function muda(el, v) {
+  if (typeof el === 'string') el = q(el);
+  if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  el.dispatchEvent(new W.Event('change', { bubbles: true }));
+}
+function ativ(trecho, cod) { return App.E.base.trechos.filter(function (t) { return t.id === trecho; })[0].atividades.filter(function (a) { return a.codigo === cod; })[0]; }
+function cantId(nome) { var r; App.E.base.trechos.forEach(function (t) { t.canteiros.forEach(function (c) { if (c.nome === nome) r = c.id; }); }); return r; }
+// seleciona a célula da atividade/linha/coluna (coluna 0 = encarregado, 1 a 7 = dias) clicando nela
+function celula(cod, tipo, col) {
+  var a = ativ(App.E.trecho.id, cod), r = -1;
+  App.E.nav.forEach(function (n, i) { if (r < 0 && n.aid === a.id && n.tipo === tipo) r = i; });
+  if (r < 0) throw new Error('a atividade ' + cod + ' não está na planilha');
+  var td = q('td[data-r="' + r + '"][data-c="' + col + '"]');
+  mouse(td);
+  return function () { return q('td[data-r="' + r + '"][data-c="' + col + '"]'); };
+}
+function torres(cant, cod, tipo, dia) { return App.cel(cantId(cant), ativ(App.E.trecho.id, cod).id, tipo, dia).torres; }
+function igual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+async function parte(nome, fn) {
+  try { await fn(); } catch (e) { confere('EXCEÇÃO em "' + nome + '": ' + e.message, false); }
+}
+
+$ = function (id) { return D.getElementById(id); };
+document.getElementById('app').addEventListener('load', async function () {
+  W = this.contentWindow; D = W.document; App = W.App; Dados = W.DadosMemoria;
+  await App.pronto;
+
+  await parte('carga', function () {
+    confere('sem erro na carga do app', !D.getElementById('erro'));
+    confere('nome do arquivo vem da configuração', $('fname').textContent === 'FORM-000 - RPSQ - 16-11-2026 REV00.xlsx', $('fname').textContent);
+    var cab = q('.head').textContent;
+    confere('cabeçalho com a configuração e o nome da LT', /CONTRATANTE EXEMPLO/.test(cab) && /CONTRATO EXEMPLO/.test(cab) && /LT EXEMPLO AAA - BBB/.test(cab), cab.slice(0, 120));
+    confere('uma aba por trecho', qa('#tabs [data-trecho]').length === 2);
+    confere('canteiros do trecho e Todos', igual(qa('#f-cant option').map(function (o) { return o.textContent; }), ['Norte', 'Centro', 'Sul', 'Todos (consolidado)']));
+    confere('datas: EXEC. é a semana anterior', qa('thead tr')[2].textContent.indexOf('09/11') >= 0 && qa('thead tr')[3].textContent.indexOf('16/11') >= 0);
+    confere('semana de exemplo com amarelas', qa('td.c.pend').length === 3, qa('td.c.pend').length);
+    confere('domingo vazio mostra DSR', qa('.dsr').length > 5);
+    confere('aviso de atividade oculta com lançamento', /1 atividade oculta/.test($('tabs').textContent));
+    confere('administrador vê os comandos da semana', !$('adm-sem').hidden);
+  });
+
+  await parte('torre e intervalo em TORRE', function () {
+    var td = celula('2.1.1', 'P2', 2);
+    confere('painel abre com os campos de torre e intervalo', !!$('p-t') && !!$('p-de') && !!$('p-ate'));
+    $('p-t').value = '6/1'; clica('#p-add-t');
+    confere('torre individual entra', igual(torres('Norte', '2.1.1', 'P2', 1), ['6/1']));
+    $('p-de').value = '7/1a'; $('p-ate').value = '7/1'; clica('#p-add-i');
+    confere('intervalo com letra entra na ordem do trecho', igual(torres('Norte', '2.1.1', 'P2', 1), ['6/1', '7/1A', '7/2A', '7/1']), torres('Norte', '2.1.1', 'P2', 1));
+    confere('célula mostra o mesmo texto do painel', td().textContent === q('#pane .como').textContent && td().textContent === '6/1, 7/1A a 7/1', td().textContent);
+    confere('uma etiqueta por torre', qa('#pane .chip').length === 4);
+    clica(q('#pane [data-rmt="7/2A"]'));
+    confere('remover pelo ×', igual(torres('Norte', '2.1.1', 'P2', 1), ['6/1', '7/1A', '7/1']));
+    $('p-t').value = '99/9'; clica('#p-add-t');
+    confere('torre inexistente recusada com mensagem', /não existe no trecho X1/.test($('p-erro').textContent), $('p-erro').textContent);
+    $('p-t').value = 'chuva'; clica('#p-add-t');
+    confere('texto livre recusado', /formato/.test($('p-erro').textContent));
+    confere('total da linha conta as torres diferentes', td().parentNode.querySelector('td.calc').textContent === '5', td().parentNode.querySelector('td.calc').textContent);
+  });
+
+  await parte('KM', function () {
+    var td = celula('1.2.1', 'E', 1);
+    $('p-de').value = '0/1'; $('p-ate').value = '1/1'; clica('#p-add-i');
+    confere('KM: intervalo não inclui o vão da última torre', igual(torres('Norte', '1.2.1', 'E', 0), ['0/1', '0/2', '0/3']));
+    confere('KM: texto termina na torre onde o vão acaba', td().textContent === '0/1 a 1/1', td().textContent);
+    var vaos = App.E.trecho.torres.slice(0, 3).reduce(function (s, t) { return s + t[3]; }, 0) / 1000;
+    var tot = td().parentNode.querySelector('td.calc').textContent;
+    confere('KM: total é a soma dos vãos', tot === vaos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), [tot, vaos]);
+    confere('KM: uma etiqueta por intervalo', qa('#pane .chip').length === 1);
+    $('p-de').value = '5/1'; $('p-ate').value = '5/1'; clica('#p-add-i');
+    confere('KM: intervalo com a mesma torre vira torre sozinha', td().textContent === '0/1 a 1/1, 5/1', td().textContent);
+    clica('#p-limpa');
+    confere('limpar célula', torres('Norte', '1.2.1', 'E', 0).length === 0);
+  });
+
+  await parte('comentário', function () {
+    var td = celula('3.1.2', 'P1', 3);
+    $('cm').value = 'comentário de teste'; clica('#p-cm-ok');
+    confere('comentário salvo', App.cel(cantId('Norte'), ativ('X1', '3.1.2').id, 'P1', 2).comentario === 'comentário de teste');
+    confere('célula vazia ganha o triângulo', td().classList.contains('cm') && td().textContent === '');
+    confere('comentário listado em Observações', /comentário de teste/.test(q('.obs').textContent));
+    // digitar e clicar em outra célula também salva
+    $('cm').value = 'salvo ao trocar de célula';
+    celula('3.1.2', 'P1', 4);
+    confere('o que está digitado é salvo antes de trocar de célula', App.cel(cantId('Norte'), ativ('X1', '3.1.2').id, 'P1', 2).comentario === 'salvo ao trocar de célula');
+    clica(qa('.obs button.rm').filter(function (b) { return /salvo ao trocar/.test(b.parentNode.textContent); })[0]);
+    confere('remover pela lista de Observações', App.cel(cantId('Norte'), ativ('X1', '3.1.2').id, 'P1', 2).comentario === '' && !/salvo ao trocar/.test(q('.obs').textContent));
+  });
+
+  await parte('encarregado obrigatório', function () {
+    confere('linha com torres e sem encarregado fica marcada', qa('td.c.falta').length === 1, qa('td.c.falta').length);
+    clica('#b-exp');
+    confere('exportar bloqueia e diz quantos faltam', /Falta o encarregado em 1 linha/.test($('toast').textContent), $('toast').textContent);
+    var nv = App.E.nav[App.E.sel.r];
+    confere('o app seleciona a linha que falta', App.E.sel.c === 0 && nv.tipo === 'P2' && App.ativ(nv.aid).codigo === '2.1.1');
+    $('p-enc').value = 'ENCARREGADO G'; clica('#p-enc-ok');
+    confere('encarregado salvo', App.encarregado(cantId('Norte'), ativ('X1', '2.1.1').id, 'P2') === 'ENCARREGADO G' && qa('td.c.falta').length === 0);
+    clica('#b-exp');
+    confere('sem pendência, a exportação segue', !/Falta o encarregado/.test($('toast').textContent), $('toast').textContent);
+  });
+
+  await parte('adicionar, avulsa e ocultar', function () {
+    clica('#b-add');
+    confere('painel Adicionar atividade abre', !$('addp').hidden);
+    muda('#ad-g', '4'); muda('#ad-t', '4.2');
+    var opc = qa('#ad-a option').map(function (o) { return o.textContent; });
+    confere('cascata mostra as atividades do tópico', opc.length === 3 && /4\.2\.1/.test(opc[1]), opc);
+    muda('#ad-a', String(ativ('X1', '4.2.1').id)); clica('#ad-ok');
+    confere('atividade adicionada à planilha', App.visivel(cantId('Norte'), ativ('X1', '4.2.1').id) && /4\.2\.1/.test(q('#paper').textContent));
+    muda('#ad-g', '4'); muda('#ad-t', '4.2');
+    confere('a que já está na planilha fica desabilitada', q('#ad-a option[value="' + ativ('X1', '4.2.1').id + '"]').disabled);
+    muda('#ad-av', true); muda('#ad-g', '5'); muda('#ad-t', '5.1');
+    confere('avulsa mostra o próximo número do tópico', /5\.1\.3/.test(q('label[for="ad-n"]').textContent), q('label[for="ad-n"]').textContent);
+    $('ad-n').value = 'teste avulsa'; clica('#ad-ok');
+  });
+  await new Promise(function (r) { setTimeout(r, 50); });
+  await parte('avulsa e ocultar', function () {
+    var av = ativ('X1', '5.1.3');
+    confere('avulsa criada e visível', !!av && av.avulsa && av.nome === 'TESTE AVULSA' && App.visivel(cantId('Norte'), av.id));
+    confere('avulsa aparece com a etiqueta', qa('#paper .tag').length === 2);
+    clica(q('[data-hide="' + ativ('X1', '4.2.1').id + '"]'));
+    confere('ocultar tira da planilha', !App.visivel(cantId('Norte'), ativ('X1', '4.2.1').id) && !/LANÇAMENTO DO CABO CONDUTOR/.test(q('#paper').textContent));
+    clica('#ad-x');
+  });
+
+  await parte('previsto e acumulado', function () {
+    var a = ativ('X1', '2.1.1');
+    muda(q('[data-ctl="' + a.id + '|previsto"]'), '100');
+    confere('falta e % recalculados', q('[data-falta="' + a.id + '"]').textContent === '80' && q('[data-pct="' + a.id + '"]').textContent === '20%',
+      [q('[data-falta="' + a.id + '"]').textContent, q('[data-pct="' + a.id + '"]').textContent]);
+    muda(q('[data-ctl="' + a.id + '|acumulado"]'), 'abc');
+    confere('valor que não é número é recusado', App.controle(a.id).acumulado === 20 && /número/.test($('toast').textContent));
+    muda(q('[data-ctl="' + a.id + '|acumulado"]'), '25,5');
+    confere('aceita vírgula decimal', App.controle(a.id).acumulado === 25.5);
+  });
+
+  await parte('teclado', function () {
+    var td = celula('2.1.1', 'P1', 1);
+    var r0 = App.E.sel.r;
+    tecla('ArrowDown');
+    confere('seta para baixo', App.E.sel.r === r0 + 1 && App.E.sel.c === 1);
+    tecla('ArrowUp'); tecla('ArrowRight');
+    confere('seta para cima e para a direita', App.E.sel.r === r0 && App.E.sel.c === 2);
+    tecla('Tab');
+    confere('Tab avança', App.E.sel.c === 3);
+    tecla('ArrowLeft');
+    confere('seta para a esquerda', App.E.sel.c === 2);
+    $('cm').value = 'fica depois do Delete'; clica('#p-cm-ok');
+    tecla('Delete');
+    var x = App.cel(cantId('Norte'), ativ('X1', '2.1.1').id, 'P1', 1);
+    confere('Delete apaga as torres e mantém o comentário', x.torres.length === 0 && x.comentario === 'fica depois do Delete', x);
+    tecla('7');
+    confere('começar a digitar leva ao painel', D.activeElement && D.activeElement.id === 'p-t' && $('p-t').value === '7');
+  });
+
+  await parte('consolidado', function () {
+    muda('#f-cant', 'todos');
+    confere('Todos: sem painel', $('pane').hidden);
+    confere('Todos: blocos em negrito', qa('tr.blk').length >= 5, qa('tr.blk').length);
+    var conflito = qa('td.c.w');
+    confere('conflito: as duas células marcadas', conflito.length === 2, conflito.length);
+    confere('conflito: explicação ao passar o mouse', /também está lançada por/.test(conflito[0].title), conflito[0].title);
+    // 2.1.1 PROG. 1: Norte tem 2/2, 3/1, 3/2 (o dia 1 foi apagado no teste do teclado); Sul tem 3/1, 3/2, 10/1.
+    // A soma daria 6; a união dá 4.
+    var tr = qa('td.pl').filter(function (td) { return td.textContent === '2.1.1'; })[0].parentNode;
+    while (tr && !(tr.classList.contains('blk') && /PRIMEIRA SEMANA/.test(tr.textContent))) tr = tr.nextElementSibling;
+    var tot = tr.querySelector('td.calc').textContent;
+    confere('total do bloco usa a união das torres', tot === '4', tot);
+    confere('linha do bloco mostra a união do dia', tr.textContent.indexOf('2/2 a 3/2, 10/1') >= 0, tr.textContent);
+    mouse(conflito[0]);
+    confere('selecionar no consolidado mostra a célula na barra de fórmulas', /·/.test($('namebox').textContent) && $('fx').value !== '');
+    muda('#f-cant', String(cantId('Norte')));
+  });
+
+  await parte('outra pessoa e conexão', function () {
+    var td = celula('3.1.2', 'P1', 5);
+    $('cm').value = 'rascunho';
+    Dados.simularOutraPessoa('celulas', { semana: '2026-11-16', canteiroId: cantId('Norte'), atividadeId: ativ('X1', '3.1.2').id, tipo: 'P1', dia: 4, torres: ['8/1'], comentario: '', aConfirmar: false });
+    confere('mudança de outra pessoa aparece sem recarregar', td().textContent === '8/1', td().textContent);
+    confere('a seleção continua no lugar', td().classList.contains('sel'));
+    confere('o rascunho do comentário não se perde', $('cm').value === 'rascunho');
+    $('cm').value = '';
+    Dados.simularConexao(false);
+    confere('sem conexão: aviso na barra de título', /Sem conexão/.test($('conexao').textContent));
+    confere('sem conexão: edição bloqueada', !App.podeEditar() && !$('p-t') && $('b-add').hidden);
+    Dados.simularConexao(true);
+    confere('conexão de volta: edição liberada', App.podeEditar() && $('conexao').textContent === '');
+  });
+
+  await parte('revisão e elaborado', function () {
+    muda('#f-rev', '1');
+  });
+  await new Promise(function (r) { setTimeout(r, 50); });
+  await parte('revisão', function () {
+    confere('revisão muda o nome do arquivo e o cabeçalho', /REV01\.xlsx$/.test($('fname').textContent) && /Revisão: 1/.test(q('.head').textContent), $('fname').textContent);
+    muda('#f-elab', 'SUPERVISOR TESTE');
+  });
+
+  await App.abrirSemanaNova(true);
+  await parte('abrir semana', function () {
+    var c = cantId('Norte'), a = ativ('X1', '2.1.1').id;
+    confere('semana nova aberta e selecionada', App.E.semana.inicio === '2026-11-23' && App.E.semanas.length === 2 && /23-11-2026 REV00/.test($('fname').textContent), $('fname').textContent);
+    confere('PROG. 1 vira EXEC. a confirmar', igual(App.cel(c, a, 'E', 0).torres, ['2/2', '3/1', '3/2']) && App.cel(c, a, 'E', 0).aConfirmar);
+    confere('célula só com comentário não fica amarela', App.cel(c, a, 'E', 1).comentario === 'fica depois do Delete' && !App.cel(c, a, 'E', 1).aConfirmar);
+    confere('células amarelas na tela', qa('td.c.pend').length >= 1, qa('td.c.pend').length);
+    confere('PROG. 2 vira PROG. 1', igual(App.cel(c, a, 'P1', 0).torres, ['5/1', '5/2']) && igual(App.cel(c, a, 'P1', 1).torres, ['6/1', '7/1A', '7/1']));
+    confere('PROG. 2 nova vazia', [0, 1, 2, 3, 4, 5, 6].every(function (d) { return !App.cel(c, a, 'P2', d).torres.length; }));
+    confere('encarregados acompanham as linhas', App.encarregado(c, a, 'E') === 'ENCARREGADO A' && App.encarregado(c, a, 'P1') === 'ENCARREGADO G' && App.encarregado(c, a, 'P2') === '');
+    confere('previsto e acumulado copiados', App.controle(a).previsto === 100 && App.controle(a).acumulado === 25.5);
+    confere('atividade avulsa continua na planilha', App.visivel(c, ativ('X1', '5.1.3').id));
+    var td = celula('2.1.1', 'E', 1);
+    clica(q('#pane [data-conf]'));
+    confere('confirmar tira o amarelo', !App.cel(c, a, 'E', 0).aConfirmar && !td().classList.contains('pend'));
+  });
+  await App.trocarSemana('2026-11-16');
+  await parte('semana anterior', function () {
+    confere('semana anterior é só consulta', !App.podeEditar() && /Semana anterior/.test($('pane').textContent) && $('b-add').hidden);
+    confere('elaborado ficou gravado na semana', $('f-elab').value === 'SUPERVISOR TESTE');
+    confere('na semana anterior não há botão ocultar nem remover comentário', !q('[data-hide]') && !q('.obs button.rm'));
+  });
+  await App.trocarSemana('2026-11-23');
+
+  await parte('outro trecho e papel consulta', function () {
+    clica(q('#tabs [data-trecho="X2"]'));
+    confere('aba do segundo trecho', App.E.trecho.id === 'X2' && igual(qa('#f-cant option').map(function (o) { return o.textContent; }), ['Leste', 'Oeste', 'Todos (consolidado)']));
+    confere('lançamentos do segundo trecho', /2\/1 a 3\/1/.test(q('#paper').textContent));
+    var td = celula('2.1.2', 'P1', 3);
+    $('p-t').value = '11/2'; clica('#p-add-t');
+    confere('lançar no segundo trecho', td().textContent === '11/2' && App.E.trecho.torres.length === 27);
+    App.E.usuario.papel = 'consulta'; Dados.definirPapel('consulta'); App.render();
+    confere('consulta: sem Adicionar, sem ocultar, previsto só leitura', $('b-add').hidden && !q('[data-hide]') && q('[data-ctl]').readOnly);
+    confere('consulta: sem comandos de administrador', $('adm-sem').hidden);
+    confere('consulta: Delete não apaga', (function () { tecla('Delete'); return App.cel(cantId('Leste'), ativ('X2', '2.1.2').id, 'P1', 2).torres.length === 1; })());
+  });
+  fim();
+});
+</script>
+</body>
+</html>

@@ -9,12 +9,14 @@
 <body>
 
 <!-- Estrutura da tela, copiada da prévia aprovada. O conteúdo é desenhado pelos scripts de js/.
-     A FAZER nas etapas: tela de entrada (login), seletor de semana na faixa de comandos,
-     botões de administrador (abrir semana, usuários, cópia de segurança). -->
+     A FAZER na etapa 5: tela de entrada (login) e botões de administrador (usuários, cópia de segurança). -->
 
 <div class="title g"><b>RPSQ</b><span id="fname"></span><span class="pv" id="conexao"></span></div>
 
 <div class="ribbon g">
+  <div class="grp"><label for="f-sem">Semana</label><select id="f-sem"></select>
+    <span class="grp" id="adm-sem" hidden><label for="f-rev">Revisão</label><input type="text" id="f-rev" inputmode="numeric" autocomplete="off">
+      <button class="rb" id="b-abrir">Abrir semana nova</button></span></div>
   <div class="grp"><label for="f-cant">Canteiro</label><select id="f-cant"></select></div>
   <div class="grp"><button class="rb" id="b-add">Adicionar atividade</button></div>
   <div class="grp">
@@ -34,6 +36,9 @@
 <!-- Bibliotecas copiadas (ver lib/LEIA-ME.md) -->
 <script src="lib/supabase.js"></script>
 <script src="lib/exceljs.min.js"></script>
+
+<!-- Dados FICTÍCIOS usados pelo modo 'memoria' (demonstração e testes). No modo 'supabase' não são usados. -->
+<script src="../testes/base-exemplo.js"></script>
 
 <!-- App: a ordem importa, porque são scripts clássicos, sem import/export -->
 <script src="config.js"></script>

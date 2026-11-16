@@ -8,8 +8,9 @@ Uso:
 testes/          testes públicos, que usam só os dados fictícios de base-exemplo.js
 privado/testes/  testes com dados reais; a pasta não vai para o repositório e pode não existir
 
-Como escrever uma página de teste: veja testes/teste-base-exemplo.html. Em resumo, a página carrega
-apoio.js e os scripts do app, e depois chama as funções `confere` e `fim`. Cada conferência vira uma
+Como escrever uma página de teste: veja testes/teste-base-exemplo.html. Para testar a tela inteira, veja
+testes/teste-tela.html: ela abre app/index.html num quadro (iframe); por isso o Chrome roda com
+--allow-file-access-from-files. Em resumo, a página carrega apoio.js e os scripts do app, e depois chama as funções `confere` e `fim`. Cada conferência vira uma
 linha "OK" ou "FALHA". Erros de carga da página também aparecem aqui.
 
 O comando termina com código 1 se alguma conferência falhar ou se a página der erro.
@@ -48,7 +49,7 @@ def executa(args):
     perfil = tempfile.mkdtemp(prefix="rpsq-chrome-")
     try:
         cmd = [chrome(), "--headless=new", "--disable-gpu", "--no-first-run",
-               "--user-data-dir=" + perfil, "--virtual-time-budget=6000", "--window-size=1700,950"] + args
+               "--user-data-dir=" + perfil, "--allow-file-access-from-files", "--virtual-time-budget=6000", "--window-size=1700,950"] + args
         r = subprocess.run(cmd, capture_output=True, timeout=120)
         return r.stdout.decode("utf-8", errors="replace")
     finally:
