@@ -124,3 +124,7 @@ body.sem-login .entrada{display:grid;gap:6px;margin:60px auto;background:var(--p
 .entrada .erro:empty{display:none}
 .entrada button{justify-self:start;margin-top:6px}
 .title button{background:transparent;border:1px solid rgba(255,255,255,.7);color:#FFFFFF;border-radius:3px;padding:1px 9px;cursor:pointer;font-size:12.5px}
+/* Tela de usuários (administrador) */
+table.usuarios td.in select{width:100%;border:0;background:transparent;text-align:center}
+.erro-adm{color:var(--bad)}
+.erro-adm:empty{display:none}

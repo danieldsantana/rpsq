@@ -18,6 +18,7 @@
 <script src="../app/js/planilha.js"></script>
 <script src="../app/js/painel.js"></script>
 <script src="../app/js/excel.js"></script>
+<script src="../app/js/admin.js"></script>
 <script src="../app/js/app.js"></script>
 <script>
 // Confere se todos os arquivos do app carregam sem erro e na ordem certa.
@@ -27,7 +28,7 @@ bloco('carga', function () {
   confere('biblioteca ExcelJS', typeof ExcelJS === 'object' && typeof ExcelJS.Workbook === 'function');
   confere('configuração', typeof RPSQ_CONFIG === 'object' && ['memoria', 'supabase'].indexOf(RPSQ_CONFIG.dados) >= 0, RPSQ_CONFIG.dados);
   confere('a chave service_role não está no app', !/service_role/.test(JSON.stringify(RPSQ_CONFIG)));
-  ['Regras', 'DadosMemoria', 'DadosSupabase', 'Planilha', 'Painel', 'Exportacao', 'App', 'Dados'].forEach(function (n) {
+  ['Regras', 'DadosMemoria', 'DadosSupabase', 'Planilha', 'Painel', 'Exportacao', 'Admin', 'App', 'Dados'].forEach(function (n) {
     confere('módulo ' + n, typeof window[n] === 'object' && window[n] !== null);
   });
   confere('camada de dados escolhida pela configuração', Dados === (RPSQ_CONFIG.dados === 'supabase' ? DadosSupabase : DadosMemoria));

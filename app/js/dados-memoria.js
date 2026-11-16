@@ -177,6 +177,8 @@ var DadosMemoria = (function () {
     M = { base: null, semanas: [], celulas: [], linhas: [], planilha: [], controle: [],
           usuario: { id: 'memoria', nome: 'USUÁRIO DE TESTE', papel: 'admin' },
           usuarios: [{ id: 'memoria', email: 'teste@exemplo.com', nome: 'USUÁRIO DE TESTE', papel: 'admin', ativo: true }],
+          // logins que "existem no projeto" (no Supabase, auth.users); só esses podem entrar na lista do RPSQ
+          logins: ['teste@exemplo.com', 'novo@exemplo.com', 'outro@exemplo.com'],
           ouvintes: [], ouvintesConexao: [] };
     M.base = montaBase();
     montaExemplo();
@@ -357,10 +359,13 @@ var DadosMemoria = (function () {
     listarUsuarios: function () { var erro = soAdmin(); return erro ? falha(erro) : ok(M.usuarios); },
     gravarUsuario: function (u) {
       var erro = soAdmin(); if (erro) return falha(erro);
-      var x = acha(M.usuarios, ['email'], [String(u.email || '').toLowerCase()]);
-      if (!x) return falha('Não existe login com o e-mail ' + u.email + ' no projeto.');
-      x.nome = u.nome; x.papel = u.papel; x.ativo = u.ativo;
-      return ok(x);
+      var email = String(u.email || '').trim().toLowerCase();
+      if (M.logins.indexOf(email) < 0) return falha('Não existe login com o e-mail ' + u.email + ' no projeto. Crie antes no painel do Supabase (Authentication > Users).');
+      var x = acha(M.usuarios, ['email'], [email]);
+      if (x && x.id === M.usuario.id && (u.papel !== 'admin' || u.ativo === false)) return falha('Você não pode tirar o seu próprio acesso de administrador.');
+      if (!x) { x = { id: 'login-' + email, email: email }; M.usuarios.push(x); }
+      x.nome = String(u.nome || '').trim(); x.papel = u.papel; x.ativo = u.ativo !== false;
+      return ok();
     },
     copiaDeSeguranca: function () { return ok({ semanas: M.semanas, celulas: M.celulas, linhas: M.linhas, planilha: M.planilha, controle: M.controle }); },
 

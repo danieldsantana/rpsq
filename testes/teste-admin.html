@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Teste: funções do administrador</title>
+</head>
+<body>
+<script src="apoio.js"></script>
+<iframe id="app" src="../app/index.html?dados=memoria" style="width:1400px;height:800px;border:0"></iframe>
+<script>
+// Tela de usuários e cópia de segurança (etapa 5), com a camada em memória e e-mails fictícios @exemplo.com.
+document.getElementById('app').addEventListener('load', async function () {
+  var W = this.contentWindow, D = W.document, App = W.App;
+  function $(id) { return D.getElementById(id); }
+  function clica(el) { (typeof el === 'string' ? D.querySelector(el) : el).dispatchEvent(new W.MouseEvent('click', { bubbles: true })); }
+  function espera() { return new Promise(function (r) { setTimeout(r, 30); }); }
+  await App.pronto;
+  try {
+    confere('admin vê os botões Usuários e Cópia de segurança', !$('adm').hidden);
+    clica('#b-usuarios'); await espera();
+    confere('tela de usuários lista quem está no RPSQ', /USUÁRIOS DO RPSQ/.test($('paper').textContent) && /teste@exemplo\.com/.test($('paper').textContent));
+    confere('sem painel lateral na tela de usuários', $('pane').hidden);
+
+    $('u-nome-novo').value = 'PESSOA NOVA'; $('u-email-novo').value = 'novo@exemplo.com'; $('u-papel-novo').value = 'edita';
+    clica('#u-incluir'); await espera();
+    confere('incluir pessoa que tem login no projeto', /novo@exemplo\.com/.test($('paper').textContent) && /PESSOA NOVA/.test(D.querySelector('#paper').innerHTML));
+
+    $('u-nome-novo').value = 'SEM LOGIN'; $('u-email-novo').value = 'semlogin@exemplo.com';
+    clica('#u-incluir'); await espera();
+    confere('e-mail sem login no projeto é recusado com explicação', /Não existe login/.test($('u-erro').textContent), $('u-erro').textContent);
+
+    // o próprio administrador não pode se rebaixar
+    var i = -1;
+    D.querySelectorAll('#paper tbody tr').forEach(function (tr, k) { if (/teste@exemplo\.com/.test(tr.textContent)) i = k; });
+    $('u-papel-' + i).value = 'consulta';
+    clica(D.querySelector('[data-salva-u="' + i + '"]')); await espera();
+    confere('admin não tira o próprio acesso', /próprio acesso/.test($('u-erro').textContent), $('u-erro').textContent);
+
+    // mudar o papel de outra pessoa
+    var j = -1;
+    D.querySelectorAll('#paper tbody tr').forEach(function (tr, k) { if (/novo@exemplo\.com/.test(tr.textContent)) j = k; });
+    $('u-papel-' + j).value = 'consulta'; $('u-ativo-' + j).checked = false;
+    clica(D.querySelector('[data-salva-u="' + j + '"]')); await espera();
+    var u = (await W.Dados.listarUsuarios()).filter(function (x) { return x.email === 'novo@exemplo.com'; })[0];
+    confere('alterar papel e desativar', u.papel === 'consulta' && u.ativo === false, u);
+
+    clica('#u-voltar'); await espera();
+    confere('voltar à planilha', App.E.tela === 'planilha' && /RELATÓRIO DE PROGRAMAÇÃO SEMANAL/.test($('paper').textContent));
+
+    // cópia de segurança: troca o download por um marcador
+    var baixado = null;
+    W.Admin.baixar = function (nome, blob) { baixado = { nome: nome, blob: blob }; };
+    clica('#b-copia'); await espera(); await espera();
+    var texto = baixado ? await baixado.blob.text() : '';
+    var copia = texto ? JSON.parse(texto) : {};
+    confere('cópia de segurança baixa um JSON com a data no nome', baixado && /^rpsq-copia-\d{4}-\d{2}-\d{2}\.json$/.test(baixado.nome), baixado && baixado.nome);
+    confere('cópia traz as tabelas da semana', copia.semanas && copia.semanas.length === 1 && copia.celulas.length > 5, Object.keys(copia));
+
+    // quem não é admin não vê os botões
+    App.E.usuario.papel = 'edita'; App.render();
+    confere('quem não é admin não vê Usuários nem Cópia', $('adm').hidden);
+  } catch (e) {
+    confere('EXCEÇÃO: ' + e.message, false);
+  }
+  fim();
+});
+</script>
+</body>
+</html>

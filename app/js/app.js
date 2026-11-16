@@ -29,7 +29,8 @@ var App = (function () {
     cel: {}, enc: {}, vis: {}, ctrl: {},
     trecho: null, canteiro: null,      // canteiro: id do canteiro ou TODOS
     sel: null, ssel: null, nav: [],    // seleção na visão do canteiro ({r, c}) e no consolidado (chave)
-    addAberto: false, add: { g: '', t: '', a: '', avulsa: false }
+    addAberto: false, add: { g: '', t: '', a: '', avulsa: false },
+    tela: 'planilha'                   // 'planilha' ou 'usuarios' (administrador)
   };
   var ATIV = {}, CANT = {}, REGRAS = {};
   var cancelarAssinatura = null;
@@ -229,6 +230,7 @@ var App = (function () {
         ddmmaaaa(s.inicio) + (i ? ' (consulta)' : '') + '</option>';
     }).join('');
     $('adm-sem').hidden = !ehAdmin();
+    $('adm').hidden = !ehAdmin();
     $('f-rev').value = E.semana ? E.semana.revisao || 0 : '';
     $('f-rev').disabled = !E.semana || !E.conectado;
     $('b-abrir').disabled = !E.conectado;
@@ -258,6 +260,12 @@ var App = (function () {
   }
   function render() {
     faixaComandos();
+    // na tela de usuários, a folha não é redesenhada (para não apagar o que está sendo digitado lá)
+    if (E.tela === 'usuarios') {
+      $('addp').hidden = true; $('pane').hidden = true;
+      $('namebox').innerHTML = '&nbsp;'; $('fx').value = '';
+      return;
+    }
     Painel.desenharAdd();
     Planilha.desenhar();
     faixa();
@@ -287,7 +295,8 @@ var App = (function () {
   // ---------- ações da faixa de comandos ----------
   function trocarTrecho(id) {
     var t = E.base.trechos.filter(function (x) { return x.id === id; })[0];
-    if (!t || t === E.trecho) return;
+    if (!t || (t === E.trecho && E.tela === 'planilha')) return;
+    E.tela = 'planilha';
     E.trecho = t;
     E.canteiro = t.canteiros.length ? t.canteiros[0].id : TODOS;
     E.sel = null; E.ssel = null; E.add = { g: '', t: '', a: '', avulsa: false };
@@ -296,11 +305,11 @@ var App = (function () {
   }
   function trocarCanteiro(v) {
     E.canteiro = v === TODOS ? TODOS : +v;
-    E.sel = null; E.ssel = null;
+    E.sel = null; E.ssel = null; E.tela = 'planilha';
     render();
   }
   function trocarSemana(inicio) {
-    return carregarSemana(inicio).then(function () { E.sel = null; E.ssel = null; render(); });
+    return carregarSemana(inicio).then(function () { E.sel = null; E.ssel = null; E.tela = 'planilha'; render(); });
   }
   function abrirSemanaNova(semPerguntar) {
     var nova = E.semanas.length ? somaDias(E.semanas[0].inicio, 7) : null;
@@ -360,7 +369,7 @@ var App = (function () {
     var b = ev.target.closest && ev.target.closest('button');
     if (!b || b.disabled) return;
     Painel.salvar();
-    if (Painel.clique(b) || Planilha.clique(b)) return;
+    if (Painel.clique(b) || Planilha.clique(b) || Admin.clique(b)) return;
     if (b.id === 'b-exp') exportar();
     else if (b.id === 'b-abrir') abrirSemanaNova();
   });
