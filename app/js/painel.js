@@ -188,9 +188,11 @@ var Painel = (function () {
     var i = a.nomeTopico.indexOf(' - ');
     return i >= 0 ? { grupo: a.nomeTopico.slice(0, i), topico: a.nomeTopico.slice(i + 3) } : { grupo: a.nomeTopico, topico: a.nomeTopico };
   }
+  // atividades que podem ser adicionadas (as desativadas no catálogo ficam de fora)
+  function catalogo() { return App.atividadesDoTrecho().filter(function (a) { return a.ativa !== false; }); }
   function grupos() {
     var saida = [];
-    App.atividadesDoTrecho().forEach(function (a) {
+    catalogo().forEach(function (a) {
       var g = a.topico.split('.')[0];
       if (!saida.some(function (x) { return x.id === g; })) saida.push({ id: g, nome: partes(a).grupo });
     });
@@ -198,7 +200,7 @@ var Painel = (function () {
   }
   function topicos(g) {
     var saida = [];
-    App.atividadesDoTrecho().forEach(function (a) {
+    catalogo().forEach(function (a) {
       if (a.topico.split('.')[0] === g && !saida.some(function (x) { return x.id === a.topico; })) saida.push({ id: a.topico, nome: partes(a).topico });
     });
     return saida;
@@ -217,7 +219,7 @@ var Painel = (function () {
     box.hidden = !aberto;
     if (!aberto) { box.innerHTML = ''; return; }
     var tops = A.g ? topicos(A.g) : [];
-    var ativs = App.atividadesDoTrecho().filter(function (a) { return a.topico === A.t; });
+    var ativs = catalogo().filter(function (a) { return a.topico === A.t; });
     var unidades = [];
     App.atividadesDoTrecho().forEach(function (a) { if (unidades.indexOf(a.unidade) < 0) unidades.push(a.unidade); });
     var h = '<label for="ad-g">Grupo</label><select id="ad-g"><option value="">Escolha…</option>' + grupos().map(function (g) {

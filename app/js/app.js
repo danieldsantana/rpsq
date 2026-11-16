@@ -393,13 +393,46 @@ var App = (function () {
     }
   });
 
+  // ---------- entrada (login) ----------
+  function mostraEntrada(msg) {
+    document.body.classList.add('sem-login');
+    $('quem').textContent = '';
+    $('b-sair').hidden = true;
+    $('e-erro').textContent = msg || '';
+    $('e-email').focus();
+  }
+  document.addEventListener('submit', function (ev) {
+    if (ev.target.id !== 'entrada') return;
+    ev.preventDefault();
+    var b = $('e-ok');
+    b.disabled = true; $('e-erro').textContent = '';
+    Dados.entrar($('e-email').value, $('e-senha').value).then(function (u) {
+      $('e-senha').value = '';
+      return comeca(u);
+    }).catch(function (err) {
+      $('e-erro').textContent = err && err.message ? err.message : String(err);
+    }).then(function () { b.disabled = false; });
+  });
+  document.addEventListener('click', function (ev) {
+    if (ev.target.id !== 'b-sair') return;
+    Painel.salvar();
+    Dados.sair().then(function () { location.reload(); });
+  });
+
   // ---------- início ----------
   function iniciar() {
-    E.sel = null; E.ssel = null; E.addAberto = false;
     return Dados.usuarioAtual().then(function (u) {
-      E.usuario = u;
-      return Dados.carregarBase();
-    }).then(function (b) {
+      if (!u) { mostraEntrada(); return; }
+      return comeca(u);
+    }).catch(function (err) { mostraEntrada(err && err.message ? err.message : String(err)); });
+  }
+  function comeca(u) {
+    E.sel = null; E.ssel = null; E.addAberto = false;
+    E.usuario = u;
+    document.body.classList.remove('sem-login');
+    $('quem').textContent = u.nome;
+    $('b-sair').hidden = RPSQ_CONFIG.dados === 'memoria';
+    return Dados.carregarBase().then(function (b) {
       E.base = b;
       indexa();
       E.trecho = b.trechos[0];

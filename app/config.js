@@ -1,8 +1,8 @@
 // Configuração do RPSQ. É o único arquivo que muda entre teste e produção.
 var RPSQ_CONFIG = {
-  // 'memoria'  : dados de exemplo dentro do navegador (testes e demonstração)
-  // 'supabase' : banco real
-  dados: 'memoria',
+  // 'supabase' : banco real (o app publicado)
+  // 'memoria'  : dados de exemplo dentro do navegador. Os testes abrem a página com ?dados=memoria.
+  dados: /[?&]dados=memoria\b/.test(location.search) ? 'memoria' : 'supabase',
 
   // URL do projeto no Supabase (Project Settings > API).
   supabaseUrl: 'https://ilpijnuxkkyoyzccylzj.supabase.co',

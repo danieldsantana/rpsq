@@ -9,9 +9,18 @@
 <body>
 
 <!-- Estrutura da tela, copiada da prévia aprovada. O conteúdo é desenhado pelos scripts de js/.
-     A FAZER na etapa 5: tela de entrada (login) e botões de administrador (usuários, cópia de segurança). -->
+     A FAZER na etapa 5: botões de administrador (usuários, cópia de segurança). -->
 
-<div class="title g"><b>RPSQ</b><span id="fname"></span><span class="pv" id="conexao"></span></div>
+<div class="title g"><b>RPSQ</b><span id="fname"></span><span class="pv" id="conexao"></span><span id="quem"></span><button id="b-sair" hidden>Sair</button></div>
+
+<!-- Tela de entrada: aparece só quando não há ninguém logado (modo 'supabase') -->
+<form class="entrada" id="entrada" autocomplete="on">
+  <h1>RPSQ · Programação Semanal</h1>
+  <label for="e-email">E-mail</label><input type="email" id="e-email" autocomplete="username" required>
+  <label for="e-senha">Senha</label><input type="password" id="e-senha" autocomplete="current-password" required>
+  <div class="erro" id="e-erro" role="alert"></div>
+  <button class="rb main" type="submit" id="e-ok">Entrar</button>
+</form>
 
 <div class="ribbon g">
   <div class="grp"><label for="f-sem">Semana</label><select id="f-sem"></select>

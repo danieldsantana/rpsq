@@ -1,6 +1,6 @@
 /* Aparência do RPSQ. Copiada da prévia aprovada em 13/11/2026 (referencia/previa.html).
    A tela imita a planilha do Excel de propósito: não troque cores, fontes nem a disposição sem pedido do usuário.
-   Acréscimos do app real (fora da prévia): #f-rev e .vazio-geral. */
+   Acréscimos do app real (fora da prévia): #f-rev, .vazio-geral, a tela de entrada e o botão Sair. */
 [hidden]{display:none!important}
 body{margin:0}
 img{max-width:100%}
@@ -113,3 +113,14 @@ button.hide:hover{color:var(--bad)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(52px + env(safe-area-inset-bottom,0px));background:#201F1E;color:#FFFFFF;padding:9px 16px;border-radius:4px;font-size:13px;z-index:30;max-width:min(600px,calc(100% - 32px))}
 #f-rev{width:44px;text-align:center}
 .vazio-geral{padding:18px 14px;margin:0;color:var(--muted)}
+/* Tela de entrada (só no app real) */
+.entrada{display:none}
+body.sem-login .ribbon,body.sem-login .addp,body.sem-login .fbar,body.sem-login .work,body.sem-login .tabs{display:none}
+body.sem-login .entrada{display:grid;gap:6px;margin:60px auto;background:var(--paper);border:1px solid var(--grid);padding:20px 24px;width:min(360px,calc(100% - 32px))}
+.entrada h1{margin:0 0 8px;font-size:16px}
+.entrada label{color:var(--muted);font-size:12.5px}
+.entrada input{background:var(--paper);border:1px solid var(--chrome-line);border-radius:3px;padding:5px 8px}
+.entrada .erro{color:var(--bad);font-size:12.5px}
+.entrada .erro:empty{display:none}
+.entrada button{justify-self:start;margin-top:6px}
+.title button{background:transparent;border:1px solid rgba(255,255,255,.7);color:#FFFFFF;border-radius:3px;padding:1px 9px;cursor:pointer;font-size:12.5px}
