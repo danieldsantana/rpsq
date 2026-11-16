@@ -46,7 +46,8 @@
 //
 // --- Administração ---
 //   listarUsuarios()            -> [ { id, email, nome, papel, ativo } ]
-//   gravarUsuario({ id, nome, papel, ativo })
+//   gravarUsuario({ email, nome, papel, ativo })   inclui ou altera pelo e-mail do login; a pessoa
+//                                  precisa já ter login no projeto. Recusa tirar o próprio acesso de admin.
 //   copiaDeSeguranca()          -> objeto com todas as tabelas, para baixar como JSON
 //
 // Aqui, os dados de base vêm da variável RPSQ_BASE: nos testes públicos, testes/base-exemplo.js (fictício).

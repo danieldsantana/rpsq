@@ -35,7 +35,7 @@ Se `privado/` não existir nesta máquina, pare e peça ao usuário: sem ela nã
 - **A tela tem de parecer a planilha do Excel.** Nada de cartões, painéis coloridos ou cara de "sistema". O usuário rejeitou isso. Na dúvida, copie o protótipo.
 - **Simples, sem inventar.** Várias automações foram cortadas de propósito. Não acrescente funções que não estão na especificação; se achar que falta algo, pergunte.
 - **Sem etapa de build.** HTML, CSS e JavaScript puros, com scripts clássicos (sem `import`/`export`), para o usuário conseguir manter. Não há Node na máquina dele. Bibliotecas ficam copiadas em `app/lib/`.
-- **Teste antes de entregar.** Rode `python testes/rodar.py` (Chrome sem janela). Uma versão não testada já foi entregue em branco uma vez.
+- **Teste antes de entregar.** Rode `python testes/rodar.py` (Chrome sem janela). Uma versão não testada já foi entregue em branco uma vez. Scripts de `banco/`: `python testes/banco/rodar_banco.py` (Postgres local descartável).
 - **Você não tem acesso ao Supabase do usuário.** Os scripts SQL são escritos aqui e é ele quem roda no painel. Explique cada passo de forma concreta: ele administra o projeto, mas não é programador.
 - **Ao terminar uma etapa,** marque-a em `privado/docs/PLANO.md` e anote lá o que ficou pendente.
 
@@ -48,6 +48,7 @@ Se `privado/` não existir nesta máquina, pare e peça ao usuário: sem ela nã
 | `index.html` | sim | Só redireciona para `app/` |
 | `banco/` | sim | Script de estrutura do banco (genérico) e o passo a passo para rodar |
 | `testes/` | sim | `rodar.py`, `conferir_publico.py`, `apoio.js`, dados fictícios e as páginas de teste |
+| `testes/banco/` | sim | Teste dos scripts de `banco/` num Postgres local, com uma imitação do Supabase |
 | `privado/docs/` | **não** | Plano, especificação, banco, decisões, pontos a validar |
 | `privado/dados/` | **não** | Torres e catálogo reais |
 | `privado/referencia/` | **não** | Protótipo aprovado e planilha molde do Excel |
