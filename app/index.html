@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RPSQ Programação Semanal</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<!-- Estrutura da tela, copiada da prévia aprovada. O conteúdo é desenhado pelos scripts de js/.
+     A FAZER nas etapas: tela de entrada (login), seletor de semana na faixa de comandos,
+     botões de administrador (abrir semana, usuários, cópia de segurança). -->
+
+<div class="title g"><b>RPSQ</b><span id="fname"></span><span class="pv" id="conexao"></span></div>
+
+<div class="ribbon g">
+  <div class="grp"><label for="f-cant">Canteiro</label><select id="f-cant"></select></div>
+  <div class="grp"><button class="rb" id="b-add">Adicionar atividade</button></div>
+  <div class="grp">
+    <button class="rb main" id="b-exp">Exportar Excel</button>
+  </div>
+</div>
+<div class="addp g" id="addp" hidden></div>
+<div class="fbar g">
+  <div class="namebox" id="namebox">&nbsp;</div><span class="fx">fx</span>
+  <input type="text" id="fx" aria-label="Conteúdo da célula" spellcheck="false" autocomplete="off" disabled>
+</div>
+<div class="work"><div class="sheet-area g" id="area"><div class="paper" id="paper"></div></div><aside class="pane" id="pane" aria-label="Lançamento da célula selecionada"></aside></div>
+<datalist id="dl-torres"></datalist>
+<div class="tabs g" id="tabs"></div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<!-- Bibliotecas copiadas (ver lib/LEIA-ME.md) -->
+<script src="lib/supabase.js"></script>
+<script src="lib/exceljs.min.js"></script>
+
+<!-- App: a ordem importa, porque são scripts clássicos, sem import/export -->
+<script src="config.js"></script>
+<script src="js/regras.js"></script>
+<script src="js/dados-memoria.js"></script>
+<script src="js/dados-supabase.js"></script>
+<script src="js/planilha.js"></script>
+<script src="js/painel.js"></script>
+<script src="js/excel.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

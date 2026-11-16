@@ -1,0 +1,19 @@
+# REPOSITÓRIO PÚBLICO.
+# Tudo o que é da obra fica em privado/ e NUNCA vai para o GitHub.
+/privado/
+
+# Planilhas: nenhuma deve ser versionada, esteja onde estiver
+*.xlsx
+*.xlsm
+*.xls
+
+# Saídas dos testes (capturas de tela)
+testes/saida/
+
+# Chaves e configurações locais
+.env
+*.local
+
+# Python
+__pycache__/
+*.pyc

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Teste: dados de exemplo</title>
+</head>
+<body>
+<script src="apoio.js"></script>
+<script src="base-exemplo.js"></script>
+<script>
+// Confere o formato dos dados fictícios, que são a base dos testes públicos.
+// Serve também de modelo de página de teste: confere(nome, condição, valor) e, no fim, fim().
+bloco('dados de exemplo', function () {
+  confere('é a base de exemplo', RPSQ_BASE.exemplo === true);
+  confere('2 trechos', RPSQ_BASE.trechos.length === 2, RPSQ_BASE.trechos.map(function (t) { return t.id; }));
+  confere('configuração do cabeçalho', ['contratante', 'contratada', 'contrato', 'codigoFormulario'].every(function (k) { return !!RPSQ_BASE.config[k]; }));
+  RPSQ_BASE.trechos.forEach(function (t) {
+    var codigos = t.torres.map(function (x) { return x[0]; });
+    confere(t.id + ': tem torres', t.torres.length > 20, t.torres.length);
+    confere(t.id + ': sem torre repetida', new Set(codigos).size === codigos.length);
+    confere(t.id + ': todo código é K/S, com letra opcional', codigos.every(function (c) { return /^\d+\/\d+[A-Za-z]?$/.test(c); }));
+    confere(t.id + ': todo vão é número positivo', t.torres.every(function (x) { return typeof x[3] === 'number' && x[3] > 0; }));
+    confere(t.id + ': tem canteiros', t.canteiros.length >= 2, t.canteiros);
+    confere(t.id + ': catálogo com TORRE e KM', t.atividades.some(function (a) { return a.unidade === 'TORRE'; }) && t.atividades.some(function (a) { return a.unidade === 'KM'; }));
+    var cods = t.atividades.map(function (a) { return a.codigo; });
+    confere(t.id + ': sem código de atividade repetido', new Set(cods).size === cods.length);
+  });
+  var x1 = RPSQ_BASE.trechos[0].torres.map(function (x) { return x[0]; });
+  confere('X1: as torres com letra vêm antes das do mesmo quilômetro', x1.indexOf('7/1A') >= 0 && x1.indexOf('7/2A') < x1.indexOf('7/1'), x1.slice(x1.indexOf('7/1A') - 1, x1.indexOf('7/1') + 2));
+});
+fim();
+</script>
+</body>
+</html>
