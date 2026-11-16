@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Teste: regras da célula</title>
+</head>
+<body>
+<script src="apoio.js"></script>
+<script src="base-exemplo.js"></script>
+<script src="../app/js/regras.js"></script>
+<script>
+// Regras da célula (especificação, seção 4) com as torres FICTÍCIAS do trecho X1.
+// X1 começa em 0/1, 0/2, 0/3, 1/1, 1/2... e tem 7/1A e 7/2A ANTES de 7/1.
+var X1 = RPSQ_BASE.trechos[0];
+var r = Regras.criar(X1.torres);
+var COD = X1.torres.map(function (t) { return t[0]; });
+var VAO = {};
+X1.torres.forEach(function (t) { VAO[t[0]] = t[3]; });
+var ULTIMA = COD[COD.length - 1], PENULTIMA = COD[COD.length - 2];
+function km(lista) { return lista.reduce(function (s, c) { return s + VAO[c]; }, 0) / 1000; }
+function perto(a, b) { return Math.abs(a - b) < 1e-9; }
+function igual(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+bloco('leitura de uma torre', function () {
+  confere('existe: torre do trecho', r.existe('5/1') && r.existe('7/1A'));
+  confere('existe: torre que não existe', !r.existe('99/9') && !r.existe('5/9'));
+  confere('normaliza espaços e zeros', r.lerTorre(' 05 / 01 ') === '5/1', r.lerTorre(' 05 / 01 '));
+  confere('normaliza a letra minúscula', r.lerTorre('7/1a') === '7/1A', r.lerTorre('7/1a'));
+  confere('aceita o apóstrofo do Excel', r.lerTorre("'5/1") === '5/1');
+  confere('texto que não é torre vira null', r.lerTorre('torre cinco') === null && r.lerTorre('') === null && r.lerTorre('5/1/2') === null);
+  confere('torre inexistente devolve o código, para a mensagem', r.lerTorre('99/9') === '99/9');
+});
+
+bloco('TORRE', function () {
+  confere('intervalo inclui as pontas', igual(r.intervalo('5/1', '6/2', 'TORRE'), ['5/1', '5/2', '6/1', '6/2']), r.intervalo('5/1', '6/2', 'TORRE'));
+  confere('intervalo invertido dá o mesmo', igual(r.intervalo('6/2', '5/1', 'TORRE'), ['5/1', '5/2', '6/1', '6/2']));
+  confere('intervalo com a mesma torre', igual(r.intervalo('5/1', '5/1', 'TORRE'), ['5/1']));
+  confere('intervalo com torre inexistente é null', r.intervalo('5/1', '99/9', 'TORRE') === null);
+  confere('torre individual', r.formatar(['5/1'], 'TORRE') === '5/1');
+  confere('duas seguidas ficam com vírgula', r.formatar(['5/2', '5/1'], 'TORRE') === '5/1, 5/2', r.formatar(['5/2', '5/1'], 'TORRE'));
+  confere('três seguidas viram intervalo', r.formatar(['5/1', '5/2', '6/1'], 'TORRE') === '5/1 a 6/1', r.formatar(['5/1', '5/2', '6/1'], 'TORRE'));
+  var varias = ['10/1'].concat(r.intervalo('5/1', '6/2', 'TORRE'), r.intervalo('13/1', '15/2', 'TORRE'));
+  confere('vários itens na mesma célula', r.formatar(varias, 'TORRE') === '5/1 a 6/2, 10/1, 13/1 a 15/2', r.formatar(varias, 'TORRE'));
+  confere('ordenar tira repetidas e põe na ordem do trecho', igual(r.ordenar(['6/1', '5/1', '6/1', '99/9']), ['5/1', '6/1']), r.ordenar(['6/1', '5/1', '6/1', '99/9']));
+  confere('total = torres diferentes nos 7 dias', r.total([['5/1', '5/2'], ['5/2', '6/1'], [], ['5/1']], 'TORRE') === 3);
+  confere('total vazio = 0', r.total([[], []], 'TORRE') === 0 && r.total([], 'TORRE') === 0);
+  confere('unidade UND segue a regra de TORRE', r.total([['5/1', '5/2']], 'UND') === 2 && r.formatar(['5/1', '5/2', '6/1'], 'UND') === '5/1 a 6/1');
+});
+
+bloco('KM', function () {
+  confere('intervalo não inclui o vão da última torre', igual(r.intervalo('5/1', '6/2', 'KM'), ['5/1', '5/2', '6/1']), r.intervalo('5/1', '6/2', 'KM'));
+  confere('intervalo com a mesma torre vale a torre sozinha', igual(r.intervalo('5/1', '5/1', 'KM'), ['5/1']));
+  confere('intervalo de torres vizinhas = um vão', igual(r.intervalo('5/1', '5/2', 'KM'), ['5/1']));
+  confere('torre sozinha vale o vão à frente', perto(r.total([['5/1']], 'KM'), VAO['5/1'] / 1000), r.total([['5/1']], 'KM'));
+  confere('um vão sozinho aparece como a torre', r.formatar(['10/1'], 'KM') === '10/1');
+  confere('vãos seguidos: A a B, com B onde termina o último vão', r.formatar(['5/1', '5/2', '6/1'], 'KM') === '5/1 a 6/2', r.formatar(['5/1', '5/2', '6/1'], 'KM'));
+  confere('dois vãos seguidos também viram intervalo', r.formatar(['5/1', '5/2'], 'KM') === '5/1 a 6/1', r.formatar(['5/1', '5/2'], 'KM'));
+  var cel = [].concat(r.intervalo('5/1', '6/2', 'KM'), ['10/1'], r.intervalo('13/1', '15/2', 'KM'));
+  confere('exemplo da especificação em KM', r.formatar(cel, 'KM') === '5/1 a 6/2, 10/1, 13/1 a 15/2', r.formatar(cel, 'KM'));
+  var dias = [r.intervalo('5/1', '6/2', 'KM'), ['5/2', '10/1'], [], r.intervalo('13/1', '15/2', 'KM')];
+  var esperado = km(['5/1', '5/2', '6/1', '10/1', '13/1', '13/2', '14/1', '14/2', '15/1']);
+  confere('total em km = soma manual dos vãos diferentes', perto(r.total(dias, 'KM'), esperado), [r.total(dias, 'KM'), esperado]);
+  confere('total sem resíduo de vírgula flutuante', String(r.total([['0/1', '0/2', '0/3']], 'KM')).length <= 8, r.total([['0/1', '0/2', '0/3']], 'KM'));
+  confere('unidade em minúsculas também é KM', perto(r.total([['5/1']], 'km'), VAO['5/1'] / 1000));
+});
+
+bloco('torres com letra', function () {
+  confere('intervalo em TORRE passa pelas com letra, na ordem do trecho',
+    igual(r.intervalo('6/2', '7/1', 'TORRE'), ['6/2', '7/1A', '7/2A', '7/1']), r.intervalo('6/2', '7/1', 'TORRE'));
+  confere('intervalo em KM idem', igual(r.intervalo('6/2', '7/1', 'KM'), ['6/2', '7/1A', '7/2A']), r.intervalo('6/2', '7/1', 'KM'));
+  confere('formata respeitando a ordem do trecho', r.formatar(['7/1', '7/2A', '7/1A', '6/2'], 'TORRE') === '6/2 a 7/1', r.formatar(['7/1', '7/2A', '7/1A', '6/2'], 'TORRE'));
+  confere('soma os vãos das torres com letra', perto(r.total([['7/1A', '7/2A']], 'KM'), km(['7/1A', '7/2A'])));
+  confere('lê intervalo com letra na ponta', igual(r.ler('7/1A a 7/1', 'TORRE').codigos, ['7/1A', '7/2A', '7/1']), r.ler('7/1A a 7/1', 'TORRE'));
+});
+
+bloco('último vão do trecho', function () {
+  var fim2 = [PENULTIMA, ULTIMA];
+  confere('KM com o vão da última torre escreve "A a Z, Z"', r.formatar(fim2, 'KM') === PENULTIMA + ' a ' + ULTIMA + ', ' + ULTIMA, r.formatar(fim2, 'KM'));
+  confere('e lê de volta os dois vãos', igual(r.ler(r.formatar(fim2, 'KM'), 'KM').codigos, fim2), r.ler(r.formatar(fim2, 'KM'), 'KM'));
+  confere('a última sozinha em KM', r.formatar([ULTIMA], 'KM') === ULTIMA);
+});
+
+bloco('recusa', function () {
+  var a = r.ler('5/1, 99/9 a 5/2, 88/1', 'TORRE');
+  confere('torre inexistente vai para invalidas', igual(a.invalidas, ['99/9', '88/1']), a);
+  var b = r.ler('5/1, chuva, DSR', 'TORRE');
+  confere('texto livre vai para resto', b.resto === 'chuva, DSR' && igual(b.codigos, ['5/1']), b);
+  var c = r.ler('5/1 (500 m)', 'KM');
+  confere('metragem escrita na célula é recusada', c.resto !== '', c);
+  var d = r.ler('', 'TORRE');
+  confere('texto vazio dá lista vazia', d.codigos.length === 0 && !d.invalidas.length && d.resto === '');
+});
+
+bloco('ida e volta', function () {
+  confere('lê o exemplo da especificação em TORRE', igual(r.ler('5/1 a 6/2, 10/1, 13/1 a 15/2', 'TORRE').codigos,
+    ['5/1', '5/2', '6/1', '6/2', '10/1', '13/1', '13/2', '14/1', '14/2', '15/1', '15/2']));
+  confere('aceita "até" e hífen', igual(r.ler('5/1 até 5/2; 6/1-6/2', 'TORRE').codigos, ['5/1', '5/2', '6/1', '6/2']));
+  // listas pseudoaleatórias (sempre as mesmas), nas duas unidades, incluindo as pontas do trecho
+  var semente = 7, falhas = [];
+  function sorteio() { semente = (semente * 16807) % 2147483647; return semente / 2147483647; }
+  for (var k = 0; k < 400; k++) {
+    var lista = COD.filter(function () { return sorteio() < 0.35; });
+    if (k % 50 === 0) lista = COD.slice();
+    ['TORRE', 'KM'].forEach(function (u) {
+      var volta = r.ler(r.formatar(lista, u), u);
+      if (!igual(volta.codigos, lista) || volta.invalidas.length || volta.resto) falhas.push([u, lista.join(' ')]);
+    });
+  }
+  confere('formatar e ler de novo dá a mesma lista (800 casos)', falhas.length === 0, falhas.slice(0, 2));
+});
+
+bloco('consolidado', function () {
+  var norte = ['5/1', '5/2', '6/1'], sul = ['6/1', '6/2', '10/1'];
+  confere('união conta cada torre uma vez', igual(r.uniao([norte, sul]), ['5/1', '5/2', '6/1', '6/2', '10/1']), r.uniao([norte, sul]));
+  confere('total da união em TORRE', r.total([norte, sul], 'TORRE') === 5);
+  confere('total da união em KM não soma o vão repetido', perto(r.total([norte, sul], 'KM'), km(['5/1', '5/2', '6/1', '6/2', '10/1'])));
+  confere('torres em comum (conflito)', igual(r.emComum([norte, sul, ['10/1']]), ['6/1', '10/1']), r.emComum([norte, sul, ['10/1']]));
+  confere('sem conflito', r.emComum([norte, ['13/1']]).length === 0);
+  confere('repetida na mesma lista não é conflito', r.emComum([['5/1', '5/1']]).length === 0);
+});
+
+bloco('formato do total', function () {
+  confere('KM com duas casas e vírgula', Regras.formatarTotal(3.4567, 'KM') === '3,46', Regras.formatarTotal(3.4567, 'KM'));
+  confere('TORRE como número inteiro', Regras.formatarTotal(12, 'TORRE') === '12');
+  confere('zero fica vazio', Regras.formatarTotal(0, 'KM') === '' && Regras.formatarTotal(0, 'TORRE') === '');
+});
+fim();
+</script>
+</body>
+</html>
