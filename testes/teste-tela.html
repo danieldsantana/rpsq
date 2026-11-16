@@ -117,8 +117,12 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('o app seleciona a linha que falta', App.E.sel.c === 0 && nv.tipo === 'P2' && App.ativ(nv.aid).codigo === '2.1.1');
     $('p-enc').value = 'ENCARREGADO G'; clica('#p-enc-ok');
     confere('encarregado salvo', App.encarregado(cantId('Norte'), ativ('X1', '2.1.1').id, 'P2') === 'ENCARREGADO G' && qa('td.c.falta').length === 0);
+    // o arquivo em si é conferido em teste-excel.html; aqui só se a exportação é chamada (sem baixar nada)
+    var gerou = false, gerarDeVerdade = W.Exportacao.gerar;
+    W.Exportacao.gerar = function () { gerou = true; };
     clica('#b-exp');
-    confere('sem pendência, a exportação segue', !/Falta o encarregado/.test($('toast').textContent), $('toast').textContent);
+    W.Exportacao.gerar = gerarDeVerdade;
+    confere('sem pendência, a exportação segue', gerou && App.faltaEncarregado().length === 0);
   });
 
   await parte('adicionar, avulsa e ocultar', function () {

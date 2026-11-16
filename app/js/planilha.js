@@ -152,9 +152,10 @@ var Planilha = (function () {
   }
 
   // ---------- folha consolidada (todos os canteiros, só leitura) ----------
-  // canteiros com lançamento (torres ou comentário) numa linha de uma atividade
-  function linhasDe(a, tp) {
-    return App.canteirosDoTrecho().map(function (ct) {
+  // canteiros com lançamento (torres ou comentário) numa linha de uma atividade.
+  // Usada também pela exportação (excel.js), com o trecho de cada aba.
+  function linhasDe(a, tp, trecho) {
+    return App.canteirosDoTrecho(trecho).map(function (ct) {
       if (!App.visivel(ct.id, a.id)) return null;
       var cels = [0, 1, 2, 3, 4, 5, 6].map(function (i) { return App.cel(ct.id, a.id, tp.k, i); });
       if (!cels.some(function (x) { return x.torres.length || x.comentario; })) return null;
@@ -424,6 +425,6 @@ var Planilha = (function () {
 
   return {
     desenhar: desenhar, redesenhar: redesenhar, seleciona: seleciona, move: move, selTd: selTd,
-    clique: clique, atualizaControle: atualizaControle
+    clique: clique, atualizaControle: atualizaControle, linhasDe: linhasDe
   };
 })();

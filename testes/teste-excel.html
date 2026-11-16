@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Teste: exportação para Excel</title>
+</head>
+<body>
+<script src="apoio.js"></script>
+<iframe id="app" src="../app/index.html?dados=memoria" style="width:1400px;height:800px;border:0"></iframe>
+<script>
+// Exportação (etapa 3) com a semana de exemplo FICTÍCIA: gera a pasta de trabalho, lê de volta com o
+// próprio ExcelJS e confere abas, cabeçalho, blocos, totais, fórmulas, observações e rodapé.
+// O arquivo também vai, em base64, para <pre id="xlsx">; testes/conferir_excel.py o abre com openpyxl.
+document.getElementById('app').addEventListener('load', async function () {
+  var W = this.contentWindow, App = W.App;
+  await App.pronto;
+  try {
+    var buf = await W.Exportacao.montar().xlsx.writeBuffer();
+    var bytes = new Uint8Array(buf), bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    var pre = document.createElement('pre'); pre.id = 'xlsx'; pre.textContent = btoa(bin); document.body.appendChild(pre);
+
+    var wb = new W.ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    var nomes = wb.worksheets.map(function (w) { return w.name; });
+    confere('uma aba por trecho, com o nome do trecho', JSON.stringify(nomes) === '["X1 AAA-BBB","X2 BBB-CCC"]', nomes);
+    var ws = wb.getWorksheet('X1 AAA-BBB');
+    function v(ref) { var x = ws.getCell(ref).value; return x && x.formula ? '=' + x.formula : (x && typeof x.toISOString === 'function' ? x.toISOString().slice(0, 10) : x); }
+    // procura a linha em que a coluna tem o valor
+    function linha(col, valor, desde) {
+      for (var r = desde || 1; r <= ws.rowCount; r++) if (ws.getCell(col + r).value === valor) return r;
+      return -1;
+    }
+    confere('título', v('G2') === 'RELATÓRIO DE PROGRAMAÇÃO SEMANAL');
+    confere('nome da LT', v('G3') === 'LT EXEMPLO AAA - BBB', v('G3'));
+    confere('contratante, contratada e contrato vêm da configuração', v('F5') === 'CONTRATANTE EXEMPLO' && v('F6') === 'CONTRATADA EXEMPLO' && v('F7') === 'CONTRATO EXEMPLO');
+    confere('data da semana e revisão', v('Q5') === '2026-11-16' && v('Q7') === 0, [v('Q5'), v('Q7')]);
+    confere('datas do cabeçalho: EXEC. começa 7 dias antes', v('K10') === '2026-11-09' && v('Q12') === '2026-11-29', [v('K10'), v('Q12')]);
+    confere('cabeçalho laranja', ws.getCell('C9').fill.fgColor.argb === 'FFF47C00' && ws.getCell('C9').font.bold && ws.getCell('C9').font.size === 26);
+    confere('mesclas do cabeçalho', ws.getCell('C12').isMerged && ws.getCell('H12').isMerged && ws.getCell('G2').isMerged);
+    confere('larguras do molde', ws.getColumn('K').width === 110.66 && ws.getColumn('O').width === 115.78);
+    confere('área de impressão', ws.pageSetup.printArea && /^C2:V\d+$/.test(ws.pageSetup.printArea), ws.pageSetup.printArea);
+
+    var r211 = linha('C', '2.1.1');
+    confere('atividade com lançamento sai', r211 > 0);
+    confere('faixa azul do tópico antes da atividade', v('C' + (r211 - 1)) === '2.1' && ws.getCell('C' + (r211 - 1)).fill.fgColor.argb === 'FF003F87');
+    confere('primeiro bloco: EXECUTADO', v('I' + r211) === 'EXECUTADO', v('I' + r211));
+    confere('canteiro abaixo do bloco', v('I' + (r211 + 1)) === 'NORTE');
+    var rP1 = linha('I', 'PRIMEIRA SEMANA', r211);
+    confere('bloco da PROG. 1 com a união dos canteiros', v('K' + rP1) === '2/2 a 3/2, 10/1', v('K' + rP1));
+    confere('total do bloco pela união', v('R' + rP1) === 7, v('R' + rP1));
+    confere('encarregados do bloco', v('J' + rP1) === 'ENCARREGADO A / ENCARREGADO D', v('J' + rP1));
+    confere('linhas dos dois canteiros', v('I' + (rP1 + 1)) === 'NORTE' && v('I' + (rP1 + 2)) === 'SUL');
+    confere('domingo vazio sai DSR', v('Q' + (rP1 + 1)) === 'DSR');
+    confere('previsto, acumulado e fórmulas', v('S' + r211) === 59 && v('T' + r211) === 20 && v('U' + r211) === '=S' + r211 + '-T' + r211 &&
+      v('V' + r211) === '=IF(T' + r211 + '=0,"",T' + r211 + '/S' + r211 + ')', [v('S' + r211), v('U' + r211), v('V' + r211)]);
+    confere('código mesclado nas linhas da atividade', ws.getCell('C' + rP1).isMerged);
+    var rKm = linha('C', '1.2.1');
+    var rKmP1 = linha('I', 'PRIMEIRA SEMANA', rKm);
+    confere('KM: texto e total em km', v('M' + rKmP1) === '5/1 a 7/1A' && Math.abs(v('R' + rKmP1) - App.regras('X1').total([['5/1', '5/2', '6/1', '6/2', '7/1A', '7/2A']], 'KM')) < 1e-9 &&
+      ws.getCell('R' + rKmP1).numFmt === '0.00', [v('M' + rKmP1), v('R' + rKmP1)]);
+    confere('avulsa sai', linha('C', '2.1.4') > 0);
+    confere('atividade oculta não sai', linha('C', '5.1.1') < 0);
+    confere('atividade sem lançamento não sai', linha('C', '4.1.1') < 0);
+    var rObs = linha('C', 'OBSERVAÇÕES:');
+    var obs = [rObs + 1, rObs + 2, rObs + 3].map(function (r) { return String(v('C' + r) || ''); }).join(' | ');
+    confere('observações com atividade, canteiro, linha, dia, torres e texto', /1\.2\.1 CONSTRUÇÃO DE ACESSO · NORTE · PROG\. 1 · Qua 18\/11 \(5\/1 a 7\/1A\): Manutenção da cerca/.test(obs), obs);
+    confere('comentário em célula vazia também sai', /Mudança da equipe/.test(obs));
+    var rEl = linha('C', 'ELABORADO:');
+    confere('rodapé ELABORADO e GERÊNCIA DA OBRA', rEl > rObs && v('M' + rEl) === 'GERÊNCIA DA OBRA:' && /^NOME:/.test(v('C' + (rEl + 1))));
+    confere('moldura média nas laterais', ws.getCell('C' + rP1).border.left.style === 'medium' && ws.getCell('V' + rP1).border.right.style === 'medium');
+    var ws2 = wb.getWorksheet('X2 BBB-CCC');
+    confere('segundo trecho com o próprio cabeçalho e lançamento', ws2.getCell('G3').value === 'LT EXEMPLO CCC - DDD' || /EXEMPLO/.test(ws2.getCell('G3').value), ws2.getCell('G3').value);
+    var achou = false; ws2.eachRow(function (row) { if (row.getCell(3).value === '2.1.2') achou = true; });
+    confere('segundo trecho: atividade lançada', achou);
+    confere('nome do arquivo', App.nomeArquivo() === 'FORM-000 - RPSQ - 16-11-2026 REV00.xlsx');
+  } catch (e) {
+    confere('EXCEÇÃO: ' + e.message + ' ' + (e.stack || '').split('\n')[1], false);
+  }
+  fim();
+});
+</script>
+</body>
+</html>
