@@ -1,7 +1,9 @@
 """Testa os scripts de banco/ num Postgres LOCAL e descartável. Não toca no Supabase.
 
 Uso:
-  python testes/banco/rodar_banco.py
+  python testes/banco/rodar_banco.py                 testa a estrutura com dados fictícios
+  python testes/banco/rodar_banco.py outro.sql ...   roda banco/0*.sql e depois os scripts indicados
+                                                     (por exemplo, uma carga local), mostrando o resultado
 
 O que faz:
   1. Cria um banco temporário (pasta temporária, porta 55432) com o PostgreSQL instalado na máquina.
@@ -53,7 +55,8 @@ def main():
 
         roteiro = [os.path.join(AQUI, "supabase_simulado.sql")]
         roteiro += sorted(glob.glob(os.path.join(RAIZ, "banco", "0*.sql")))
-        roteiro += [os.path.join(AQUI, "teste_estrutura.sql")]
+        extras = [os.path.abspath(a) for a in sys.argv[1:]]
+        roteiro += extras or [os.path.join(AQUI, "teste_estrutura.sql")]
         saida = ""
         for arq in roteiro:
             print("rodando", os.path.relpath(arq, RAIZ))
@@ -65,6 +68,10 @@ def main():
                 print(r.stdout[-3000:])
                 print(r.stderr)
                 sys.exit("\nFALHOU em " + os.path.relpath(arq, RAIZ))
+        if extras:
+            print(saida[-4000:])
+            print("Scripts rodados sem erro.")
+            return
         if "TODOS OS TESTES DO BANCO PASSARAM" not in saida:
             print(saida[-3000:])
             sys.exit("\nO roteiro não chegou ao fim.")

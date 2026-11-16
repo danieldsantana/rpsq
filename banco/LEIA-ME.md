@@ -29,4 +29,4 @@ O `001_estrutura.sql` termina com um comando comentado para incluir o primeiro a
 | Script | O que faz | Onde fica | Rodado em |
 |---|---|---|---|
 | `001_estrutura.sql` | Tabelas, regras de acesso, funções e tempo real | nesta pasta | 16/11/2026 |
-| `002_dados_base.sql` | Carga inicial dos dados | pasta local, fora do Git (a gerar) | |
+| `002_dados_base.sql` | Carga inicial dos dados | pasta local, fora do Git | |
