@@ -14,8 +14,12 @@ import html
 import os
 import re
 import sys
+import warnings
+import zipfile
 
 import openpyxl
+
+warnings.filterwarnings("ignore", message="DrawingML support is incomplete")
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rodar import RAIZ, executa, url  # noqa: E402
@@ -60,6 +64,14 @@ def main():
     confere("fórmulas de QUANT. FALTA e % EXEC.", any(re.match(r"^=S\d+-T\d+$", f) for f in formulas)
             and any(f.startswith("=IF(T") for f in formulas), formulas[:2])
     confere("nenhuma coluna além da V", ws.max_column <= 23, ws.max_column)
+    # imagens: conferidas dentro do .xlsx (zip), porque o openpyxl só as carrega com a biblioteca Pillow
+    with zipfile.ZipFile(arq) as z:
+        midias = [n for n in z.namelist() if n.startswith("xl/media/")]
+        desenhos = [z.read(n).decode("utf-8") for n in z.namelist() if re.match(r"xl/drawings/drawing\d+\.xml$", n)]
+    figuras = [d.count("<xdr:pic>") for d in desenhos]
+    confere("dois logotipos em cada aba", len(midias) >= 1 and figuras == [2, 2], (midias, figuras))
+    confere("colunas estreitas alargadas", ws.column_dimensions["H"].width == 16 and ws.column_dimensions["R"].width == 24,
+            (ws.column_dimensions["H"].width, ws.column_dimensions["R"].width))
     print("\nTudo certo." if not falhas else "\nHÁ FALHAS.")
     sys.exit(1 if falhas else 0)
 

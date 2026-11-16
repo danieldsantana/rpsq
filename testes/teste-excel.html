@@ -15,6 +15,11 @@ document.getElementById('app').addEventListener('load', async function () {
   var W = this.contentWindow, App = W.App;
   await App.pronto;
   try {
+    // logotipos e identificação: no app real vêm do banco; aqui, uma imagem genérica de 1 pixel e texto fictício
+    var PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    App.E.base.config.logoContratada = PIXEL;
+    App.E.base.config.logoContratante = PIXEL;
+    App.E.base.config.identificacaoFormulario = 'CÓDIGO: FORM-000\nREVISÃO: 00';
     var buf = await W.Exportacao.montar().xlsx.writeBuffer();
     var bytes = new Uint8Array(buf), bin = '';
     for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -39,6 +44,9 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('cabeçalho laranja', ws.getCell('C9').fill.fgColor.argb === 'FFF47C00' && ws.getCell('C9').font.bold && ws.getCell('C9').font.size === 26);
     confere('mesclas do cabeçalho', ws.getCell('C12').isMerged && ws.getCell('H12').isMerged && ws.getCell('G2').isMerged);
     confere('larguras do molde', ws.getColumn('K').width === 110.66 && ws.getColumn('O').width === 115.78);
+    confere('colunas estreitas alargadas', ws.getColumn('H').width === 16 && ws.getColumn('R').width === 24 && ws.getColumn('S').width === 24);
+    confere('dois logotipos no cabeçalho', ws.getImages().length === 2, ws.getImages().length);
+    confere('bloco de identificação do formulário', /FORM-000/.test(String(v('R2'))) && ws.getCell('V3').isMerged, v('R2'));
     confere('área de impressão', ws.pageSetup.printArea && /^C2:V\d+$/.test(ws.pageSetup.printArea), ws.pageSetup.printArea);
 
     var r211 = linha('C', '2.1.1');

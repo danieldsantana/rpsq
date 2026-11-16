@@ -110,7 +110,8 @@ var DadosSupabase = (function () {
       r[0].forEach(function (x) { cfg[x.chave] = x.valor; });
       return {
         config: { contratante: cfg.contratante || '', contratada: cfg.contratada || '', contrato: cfg.contrato || '',
-                  codigoFormulario: cfg.codigo_formulario || '' },
+                  codigoFormulario: cfg.codigo_formulario || '', identificacaoFormulario: cfg.identificacao_formulario || '',
+                  logoContratada: cfg.logo_contratada || '', logoContratante: cfg.logo_contratante || '' },
         trechos: r[1].map(function (t) {
           return {
             id: t.id, sigla: t.sigla, nomeLt: t.nome_lt,

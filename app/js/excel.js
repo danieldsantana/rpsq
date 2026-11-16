@@ -5,14 +5,17 @@
 //
 // Só entram atividades visíveis e com lançamento, com os mesmos canteiros e a mesma união de torres
 // do consolidado da tela (Planilha.linhasDe). QUANT. FALTA e % EXEC. saem como fórmulas.
-// Por decisão do usuário, por enquanto o arquivo sai sem logotipos.
+// Logotipos e o bloco de identificação do formulário vêm da configuração do banco (nunca do código:
+// o repositório é público). Sem eles na configuração, o arquivo sai sem.
 //
 // App.exportar() confere o encarregado obrigatório antes de chamar gerar().
 var Exportacao = (function () {
   var C = 3, V = 22;  // a folha ocupa as colunas C a V
-  var LARG = { 1: 2, 2: 10.33, 3: 15.22, 4: 27.55, 5: 27.55, 6: 27.55, 7: 27.55, 8: 7.55, 9: 58.22, 10: 76.33,
+  // larguras do molde, exceto H e R a U, alargadas para "TORRE", "SEMANAL", "PREVISTO" e "QUANT." caberem
+  // inteiras em Calibri 26 (medido com o ajuste automático do próprio Excel; pedido do usuário em 16/11/2026)
+  var LARG = { 1: 2, 2: 10.33, 3: 15.22, 4: 27.55, 5: 27.55, 6: 27.55, 7: 27.55, 8: 16, 9: 58.22, 10: 76.33,
                11: 110.66, 12: 110.66, 13: 110.66, 14: 110.66, 15: 115.78, 16: 110.66, 17: 110.66,
-               18: 18.66, 19: 20, 20: 20.55, 21: 18.11, 22: 21.55, 23: 2 };
+               18: 24, 19: 24, 20: 21, 21: 21, 22: 21.55, 23: 2 };
   var LARANJA = 'FFF47C00', AZUL = 'FF003F87', CINZA = 'FFD9D9D9', BRANCO = 'FFFFFFFF', PRETO = 'FF000000';
   var BLOCO = { E: 'EXECUTADO', P1: 'PRIMEIRA SEMANA', P2: 'SEGUNDA SEMANA' };
 
@@ -58,6 +61,14 @@ var Exportacao = (function () {
     cel(ws, 2, 7, 'RELATÓRIO DE PROGRAMAÇÃO SEMANAL', { negrito: true, b: { top: 'medium' } });
     faixa(ws, 3, C, V, {});
     cel(ws, 3, 7, t.nomeLt, { negrito: true, v: 'top' });
+    // bloco de identificação do formulário, no canto direito (no molde é uma caixa de texto em fonte 14)
+    if (cfg.identificacaoFormulario) {
+      ws.mergeCells(2, 18, 3, V);
+      var id = ws.getCell(2, 18);
+      id.value = cfg.identificacaoFormulario;
+      id.font = { name: 'Calibri', size: 14, color: { argb: PRETO } };
+      id.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+    }
     [[2, 49.5], [3, 49.35], [4, 13.5], [5, 30.6], [6, 30.6], [7, 30.6], [8, 24]].forEach(function (x) { ws.getRow(x[0]).height = x[1]; });
     faixa(ws, 5, C, V, { b: { top: 'medium' }, quebra: false });
     faixa(ws, 6, C, V, { quebra: false });
@@ -228,6 +239,18 @@ var Exportacao = (function () {
     return r;
   }
 
+  // logotipos, nas posições do molde: o da contratada perto de C2, o da contratante perto de G2.
+  // As imagens vêm do banco (configuração), em data URL; sem imagem, o arquivo sai sem logotipo.
+  function logos(wb, ws) {
+    var cfg = App.E.base.config;
+    [[cfg.logoContratada, 2.12, 1.2, 223, 107], [cfg.logoContratante, 6.05, 1.25, 223, 125]].forEach(function (l) {
+      var m = /^data:image\/(png|jpe?g);base64,/.exec(l[0] || '');
+      if (!m) return;
+      var img = wb.addImage({ base64: l[0], extension: m[1] === 'png' ? 'png' : 'jpeg' });
+      ws.addImage(img, { tl: { col: l[1], row: l[2] }, ext: { width: l[3], height: l[4] }, editAs: 'oneCell' });
+    });
+  }
+
   // borda média à esquerda da coluna C e à direita da coluna V, da linha 2 até a última
   function moldura(ws, ultima) {
     for (var r = 2; r <= ultima; r++) {
@@ -245,6 +268,7 @@ var Exportacao = (function () {
     });
     Object.keys(LARG).forEach(function (c) { ws.getColumn(+c).width = LARG[c]; });
     cabecalho(ws, t);
+    logos(wb, ws);
     var r = corpo(ws, t, 13);
     r = observacoes(ws, t, r);
     var ultima = rodape(ws, r);

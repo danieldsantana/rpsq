@@ -15,7 +15,9 @@
 //   usuarioAtual()              -> { id, nome, papel } ou null
 //
 // --- Dados de base (mudam raramente) ---
-//   carregarBase()              -> { config: { contratante, contratada, contrato, codigoFormulario },
+//   carregarBase()              -> { config: { contratante, contratada, contrato, codigoFormulario,
+//                                              identificacaoFormulario,          (texto, várias linhas; opcional)
+//                                              logoContratada, logoContratante }, (imagens em data URL; opcionais)
 //                                    trechos: [ { id, sigla, nomeLt,
 //                                      canteiros:  [ { id, nome } ],
 //                                      torres:     [ [codigo, familia, tipo, vaoM] ],
