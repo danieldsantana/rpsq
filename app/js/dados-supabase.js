@@ -11,7 +11,12 @@
 //   mensagens claras.
 var DadosSupabase = (function () {
   var sb = null, meuId = null;
-  var conexao = { rede: navigator.onLine !== false, canal: true }, ouvintesConexao = [];
+  // Duas coisas diferentes:
+  //   rede     -> há conexão com o banco? Sem ela, o app bloqueia a edição.
+  //   tempoReal-> o canal de atualização ao vivo (WebSocket) está ligado? Algumas redes de empresa o
+  //               bloqueiam mesmo com a internet funcionando; aí o app continua editável e busca as
+  //               mudanças dos colegas de tempos em tempos.
+  var conexao = { rede: navigator.onLine !== false, tempoReal: true }, ouvintesConexao = [], ouvintesTempoReal = [], sonda = null;
 
   function cliente() {
     if (!sb) sb = supabase.createClient(RPSQ_CONFIG.supabaseUrl, RPSQ_CONFIG.supabaseChave);
@@ -23,7 +28,10 @@ var DadosSupabase = (function () {
     var msg = (e && e.message) || String(e);
     if (/invalid login credentials/i.test(msg)) return new Error('E-mail ou senha incorretos.');
     if (/email not confirmed/i.test(msg)) return new Error('O e-mail deste login ainda não foi confirmado.');
-    if (/failed to fetch|networkerror|load failed/i.test(msg)) return new Error('Sem conexão com o servidor. Confira a internet e tente de novo.');
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      redeCaiu();
+      return new Error('Sem conexão com o servidor. Confira a internet e tente de novo.');
+    }
     // gravação barrada pela regra de acesso
     if (/row-level security/i.test(msg)) {
       return new Error('Sem permissão para esta alteração. Só a semana mais recente pode ser alterada, e só por quem tem acesso de edição.');
@@ -195,12 +203,28 @@ var DadosSupabase = (function () {
   }
 
   // ---------- tempo real e conexão ----------
-  function avisaConexao() {
-    var ligada = conexao.rede && conexao.canal;
-    ouvintesConexao.forEach(function (fn) { fn(ligada); });
+  function avisaConexao() { ouvintesConexao.forEach(function (fn) { fn(conexao.rede); }); }
+  function mudaTempoReal(ligado) {
+    if (conexao.tempoReal === ligado) return;
+    conexao.tempoReal = ligado;
+    ouvintesTempoReal.forEach(function (fn) { fn(ligado); });
   }
-  window.addEventListener('online', function () { conexao.rede = true; avisaConexao(); });
-  window.addEventListener('offline', function () { conexao.rede = false; avisaConexao(); });
+  function paraSonda() { if (sonda) { clearInterval(sonda); sonda = null; } }
+  function redeVoltou() { paraSonda(); if (!conexao.rede) { conexao.rede = true; avisaConexao(); } }
+  // uma chamada ao banco falhou por rede: bloqueia a edição e testa a cada 10 segundos se voltou
+  function redeCaiu() {
+    if (!conexao.rede) return;
+    conexao.rede = false;
+    avisaConexao();
+    paraSonda();
+    sonda = setInterval(function () {
+      cliente().from('rpsq_semanas').select('inicio').limit(1).then(function (r) {
+        if (!r.error || !/failed to fetch|networkerror|load failed/i.test(r.error.message)) redeVoltou();
+      });
+    }, 10000);
+  }
+  window.addEventListener('online', redeVoltou);
+  window.addEventListener('offline', function () { if (conexao.rede) { conexao.rede = false; avisaConexao(); } });
 
   function assinar(sem, aoMudar) {
     var c = cliente();
@@ -226,14 +250,13 @@ var DadosSupabase = (function () {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'rpsq_atividades' }, trata('atividades', atividade))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rpsq_semanas' }, trata('semanas', semana))
       .subscribe(function (status) {
-        var antes = conexao.canal;
-        if (status === 'SUBSCRIBED') conexao.canal = true;
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') conexao.canal = false;
-        if (antes !== conexao.canal) avisaConexao();
+        if (status === 'SUBSCRIBED') mudaTempoReal(true);
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') mudaTempoReal(false);
       });
     return function () { c.removeChannel(canal); };
   }
   function aoMudarConexao(fn) { ouvintesConexao.push(fn); }
+  function aoMudarTempoReal(fn) { ouvintesTempoReal.push(fn); }
 
   // ---------- administração ----------
   function listarUsuarios() { return cliente().rpc('rpsq_listar_usuarios').then(dados); }
@@ -267,7 +290,7 @@ var DadosSupabase = (function () {
     carregarBase: carregarBase, criarAvulsa: criarAvulsa,
     listarSemanas: listarSemanas, carregarSemana: carregarSemana, gravarSemana: gravarSemana, abrirSemana: abrirSemana,
     gravarCelula: gravarCelula, gravarEncarregado: gravarEncarregado, gravarVisibilidade: gravarVisibilidade, gravarControle: gravarControle,
-    assinar: assinar, aoMudarConexao: aoMudarConexao,
+    assinar: assinar, aoMudarConexao: aoMudarConexao, aoMudarTempoReal: aoMudarTempoReal,
     listarUsuarios: listarUsuarios, gravarUsuario: gravarUsuario, copiaDeSeguranca: copiaDeSeguranca
   };
 })();

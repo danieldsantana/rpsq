@@ -117,9 +117,14 @@ var App = (function () {
   function podeEditar() { return !!E.semana && motivoSoLeitura() === ''; }
 
   // ---------- gravação ----------
+  var pendentes = 0; // gravações ainda em andamento
   function falhou(err) {
     toast('Não foi possível gravar: ' + (err && err.message ? err.message : err));
     if (E.semana) recarregarSemana();
+  }
+  function envia(promessa) {
+    pendentes++;
+    return promessa.catch(falhou).then(function (x) { pendentes--; return x; });
   }
   // campos: { torres, comentario, aConfirmar }; o que não vier fica como está.
   // Mudar as torres de uma célula amarela confirma a célula (ela deixa de ser amarela).
@@ -131,21 +136,21 @@ var App = (function () {
       aConfirmar: campos.aConfirmar !== undefined ? !!campos.aConfirmar : (campos.torres !== undefined ? false : atual.aConfirmar)
     };
     E.cel[kc(c, a, t, d)] = novo;
-    return Dados.gravarCelula(E.semana.inicio, c, a, t, d, novo).catch(falhou);
+    return envia(Dados.gravarCelula(E.semana.inicio, c, a, t, d, novo));
   }
   function gravarEncarregado(c, a, t, nome) {
     E.enc[ke(c, a, t)] = nome;
-    return Dados.gravarEncarregado(E.semana.inicio, c, a, t, nome).catch(falhou);
+    return envia(Dados.gravarEncarregado(E.semana.inicio, c, a, t, nome));
   }
   function gravarVisibilidade(c, a, sim) {
     E.vis[kv(c, a)] = !!sim;
-    return Dados.gravarVisibilidade(E.semana.inicio, c, a, !!sim).catch(falhou);
+    return envia(Dados.gravarVisibilidade(E.semana.inicio, c, a, !!sim));
   }
   function gravarControle(a, campo, valor) {
     var c = controle(a), novo = { previsto: c.previsto, acumulado: c.acumulado };
     novo[campo] = valor;
     E.ctrl[a] = novo;
-    return Dados.gravarControle(E.semana.inicio, a, novo).catch(falhou);
+    return envia(Dados.gravarControle(E.semana.inicio, a, novo));
   }
   function gravarSemana(campos) {
     var s = E.semana;
@@ -221,7 +226,8 @@ var App = (function () {
   function faixaComandos() {
     var todos = E.canteiro === TODOS;
     $('fname').textContent = nomeArquivo();
-    $('conexao').textContent = E.conectado ? '' : 'Sem conexão com a internet: edição bloqueada';
+    $('conexao').textContent = !E.conectado ? 'Sem conexão com a internet: edição bloqueada'
+      : (aoVivo ? '' : 'Atualização ao vivo indisponível nesta rede: as mudanças dos colegas aparecem a cada 20 segundos');
     $('f-cant').innerHTML = canteirosDoTrecho().map(function (c) {
       return '<option value="' + c.id + '"' + (c.id === E.canteiro ? ' selected' : '') + '>' + esc(c.nome) + '</option>';
     }).join('') + '<option value="' + TODOS + '"' + (todos ? ' selected' : '') + '>Todos (consolidado)</option>';
@@ -456,6 +462,28 @@ var App = (function () {
       $('paper').innerHTML = '<p class="vazio-geral">Não foi possível carregar o RPSQ: ' + esc(err && err.message ? err.message : err) + '</p>';
     });
   }
+  // Canal ao vivo bloqueado pela rede (a internet funciona): a edição continua, e a semana é
+  // buscada de novo a cada 20 segundos, sem atrapalhar quem está digitando.
+  var aoVivo = true, busca = null;
+  function atualizarDoBanco() {
+    if (!E.semana || !E.conectado || pendentes) return Promise.resolve();
+    var inicio = E.semana.inicio;
+    return Promise.all([Dados.listarSemanas(), Dados.carregarSemana(inicio)]).then(function (r) {
+      if (!E.semana || E.semana.inicio !== inicio || pendentes) return;
+      E.semanas = r[0];
+      E.semana = E.semanas.filter(function (s) { return s.inicio === inicio; })[0] || E.semana;
+      aplicaSemana(r[1]);
+      atualizarTela();
+    }).catch(function () { /* tenta de novo na próxima vez */ });
+  }
+  Dados.aoMudarTempoReal(function (ligado) {
+    if (ligado === aoVivo) return;
+    aoVivo = ligado;
+    clearInterval(busca); busca = null;
+    if (!ligado) busca = setInterval(atualizarDoBanco, 20000);
+    else atualizarDoBanco(); // pega o que mudou enquanto o canal esteve fora
+    if (E.base) faixaComandos();
+  });
   Dados.aoMudarConexao(function (ligada) {
     var antes = E.conectado;
     E.conectado = ligada;
@@ -475,7 +503,7 @@ var App = (function () {
     gravarControle: gravarControle, gravarSemana: gravarSemana, criarAvulsa: criarAvulsa,
     render: render, faixa: faixa, atualizarTela: atualizarTela, nomeArquivo: nomeArquivo,
     trocarTrecho: trocarTrecho, trocarCanteiro: trocarCanteiro, trocarSemana: trocarSemana,
-    abrirSemanaNova: abrirSemanaNova, faltaEncarregado: faltaEncarregado, exportar: exportar,
+    abrirSemanaNova: abrirSemanaNova, faltaEncarregado: faltaEncarregado, exportar: exportar, atualizarDoBanco: atualizarDoBanco,
     iniciar: iniciar
   };
   // só começa se a página tem a moldura da tela (o teste de carga dos scripts não tem)

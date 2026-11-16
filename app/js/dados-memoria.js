@@ -47,7 +47,10 @@
 //                                  é chamada para mudanças feitas por OUTRAS pessoas. O registro vem no
 //                                  formato de carregarSemana, com o campo semana; em 'atividades', no
 //                                  formato de carregarBase e com trechoId
-//   aoMudarConexao(fn)          -> fn(true|false)
+//   aoMudarConexao(fn)          -> fn(true|false)   há conexão com o banco? Sem ela, a edição é bloqueada
+//   aoMudarTempoReal(fn)        -> fn(true|false)   o canal ao vivo está funcionando? Algumas redes o
+//                                  bloqueiam com a internet funcionando; aí o app busca as mudanças
+//                                  de tempos em tempos e continua editável
 //
 // --- Administração ---
 //   listarUsuarios()            -> [ { id, email, nome, papel, ativo } ]
@@ -64,8 +67,10 @@
 // Funções SÓ DE TESTE (não existem na camada do Supabase):
 //   reiniciar()                          volta tudo ao estado inicial (base + semana de exemplo)
 //   definirPapel('consulta')             troca o papel de quem está "logado"
-//   simularOutraPessoa(tabela, registro) grava como se fosse outra pessoa e avisa quem assinou
+//   simularOutraPessoa(tabela, registro, semAviso)  grava como se fosse outra pessoa e avisa quem
+//                                        assinou (com semAviso, não avisa: como se o canal ao vivo estivesse fora)
 //   simularConexao(true|false)           simula a queda e a volta da internet
+//   simularTempoReal(true|false)         simula o canal ao vivo bloqueado pela rede
 var DadosMemoria = (function () {
   var SEMANA_EXEMPLO = '2026-11-16';
   var M; // tudo o que está "no banco"
@@ -179,7 +184,7 @@ var DadosMemoria = (function () {
           usuarios: [{ id: 'memoria', email: 'teste@exemplo.com', nome: 'USUÁRIO DE TESTE', papel: 'admin', ativo: true }],
           // logins que "existem no projeto" (no Supabase, auth.users); só esses podem entrar na lista do RPSQ
           logins: ['teste@exemplo.com', 'novo@exemplo.com', 'outro@exemplo.com'],
-          ouvintes: [], ouvintesConexao: [] };
+          ouvintes: [], ouvintesConexao: [], ouvintesTempoReal: [] };
     M.base = montaBase();
     montaExemplo();
   }
@@ -354,6 +359,7 @@ var DadosMemoria = (function () {
       return function () { M.ouvintes = M.ouvintes.filter(function (x) { return x !== o; }); };
     },
     aoMudarConexao: function (fn) { M.ouvintesConexao.push(fn); },
+    aoMudarTempoReal: function (fn) { M.ouvintesTempoReal.push(fn); },
 
     // ---------- administração ----------
     listarUsuarios: function () { var erro = soAdmin(); return erro ? falha(erro) : ok(M.usuarios); },
@@ -372,9 +378,11 @@ var DadosMemoria = (function () {
     // ---------- só de teste ----------
     reiniciar: reiniciar,
     definirPapel: function (papel) { M.usuario.papel = papel; },
-    simularOutraPessoa: function (tabela, registro) {
-      avisa(tabela, gravadores[tabela](registro));
+    simularOutraPessoa: function (tabela, registro, semAviso) {
+      var gravado = gravadores[tabela](registro);
+      if (!semAviso) avisa(tabela, gravado);
     },
-    simularConexao: function (ligada) { M.ouvintesConexao.forEach(function (fn) { fn(!!ligada); }); }
+    simularConexao: function (ligada) { M.ouvintesConexao.forEach(function (fn) { fn(!!ligada); }); },
+    simularTempoReal: function (ligado) { M.ouvintesTempoReal.forEach(function (fn) { fn(!!ligado); }); }
   };
 })();

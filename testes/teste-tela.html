@@ -213,6 +213,20 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('conexão de volta: edição liberada', App.podeEditar() && $('conexao').textContent === '');
   });
 
+  await parte('canal ao vivo bloqueado pela rede', async function () {
+    var td = celula('3.1.2', 'P1', 6);
+    Dados.simularTempoReal(false);
+    confere('aviso de atualização a cada 20 segundos, sem falar em falta de internet', /a cada 20 segundos/.test($('conexao').textContent) && !/Sem conexão/.test($('conexao').textContent), $('conexao').textContent);
+    confere('a edição continua liberada', App.podeEditar() && !!$('p-t'));
+    // outra pessoa grava, mas o aviso ao vivo não chega
+    Dados.simularOutraPessoa('celulas', { semana: '2026-11-16', canteiroId: cantId('Norte'), atividadeId: ativ('X1', '3.1.2').id, tipo: 'P1', dia: 5, torres: ['9/1'], comentario: '', aConfirmar: false }, true);
+    confere('sem o canal, a mudança ainda não aparece', td().textContent === '');
+    await App.atualizarDoBanco();
+    confere('a busca periódica traz a mudança', td().textContent === '9/1' && td().classList.contains('sel'), td().textContent);
+    Dados.simularTempoReal(true);
+    confere('canal de volta: aviso some', $('conexao').textContent === '');
+  });
+
   await parte('revisão e elaborado', function () {
     muda('#f-rev', '1');
   });
