@@ -55,7 +55,10 @@ def main():
     confere("fonte Calibri 26", ws["C9"].font.name == "Calibri" and ws["C9"].font.sz == 26)
     confere("laranja do cabeçalho", ws["K9"].fill.fgColor.rgb == "FFF47C00", ws["K9"].fill.fgColor.rgb)
     confere("mesclas do cabeçalho", {"G2:P2", "C9:C12", "D9:H9", "H10:H12"} <= {str(r) for r in ws.merged_cells.ranges})
-    confere("largura da coluna K", abs(ws.column_dimensions["K"].width - 110.66) < 0.01, ws.column_dimensions["K"].width)
+    # colunas iguais vizinhas são gravadas como um grupo só (K com min=11 e max=17)
+    k = ws.column_dimensions["K"]
+    confere("colunas dos dias com a mesma largura, ajustada ao texto", k.min == 11 and k.max == 17 and 15 < k.width < 110,
+            (k.min, k.max, k.width))
     confere("sem linhas de grade", ws.sheet_view.showGridLines is False)
     confere("paisagem, A3, ajustar à largura", ws.page_setup.orientation == "landscape" and str(ws.page_setup.paperSize) == "8"
             and ws.sheet_properties.pageSetUpPr.fitToPage, (ws.page_setup.orientation, ws.page_setup.paperSize))

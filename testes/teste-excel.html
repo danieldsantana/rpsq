@@ -43,7 +43,14 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('datas do cabeçalho: EXEC. começa 7 dias antes', v('K10') === '2026-11-09' && v('Q12') === '2026-11-29', [v('K10'), v('Q12')]);
     confere('cabeçalho laranja', ws.getCell('C9').fill.fgColor.argb === 'FFF47C00' && ws.getCell('C9').font.bold && ws.getCell('C9').font.size === 26);
     confere('mesclas do cabeçalho', ws.getCell('C12').isMerged && ws.getCell('H12').isMerged && ws.getCell('G2').isMerged);
-    confere('larguras do molde', ws.getColumn('K').width === 110.66 && ws.getColumn('O').width === 115.78);
+    var dias = ['K', 'L', 'M', 'N', 'O', 'P', 'Q'].map(function (l) { return ws.getColumn(l).width; });
+    confere('colunas dos dias com a mesma largura', dias.every(function (w) { return w === dias[0]; }), dias);
+    // o texto mais comprido nas colunas dos dias do X1 é "2/2 a 3/2, 10/1"; a largura tem de caber nele e não sobrar muito
+    var regua = document.createElement('canvas').getContext('2d');
+    regua.font = '26pt Calibri, Carlito, Arial, sans-serif';
+    var precisa = regua.measureText('2/2 a 3/2, 10/1').width / 7;
+    confere('largura dos dias: a menor em que cabe o texto mais comprido', dias[0] >= precisa && dias[0] <= precisa + 3 && dias[0] < 110, [dias[0], +precisa.toFixed(2)]);
+    confere('demais larguras do molde', ws.getColumn('J').width === 76.33 && ws.getColumn('I').width === 58.22);
     confere('colunas estreitas alargadas', ws.getColumn('H').width === 16 && ws.getColumn('R').width === 24 && ws.getColumn('S').width === 24);
     confere('dois logotipos no cabeçalho', ws.getImages().length === 2, ws.getImages().length);
     confere('bloco de identificação do formulário', /FORM-000/.test(String(v('R2'))) && ws.getCell('V3').isMerged, v('R2'));

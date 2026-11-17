@@ -17,6 +17,28 @@ var Exportacao = (function () {
                11: 110.66, 12: 110.66, 13: 110.66, 14: 110.66, 15: 115.78, 16: 110.66, 17: 110.66,
                18: 24, 19: 24, 20: 21, 21: 21, 22: 21.55, 23: 2 };
   var LARANJA = 'FFF47C00', AZUL = 'FF003F87', CINZA = 'FFD9D9D9', BRANCO = 'FFFFFFFF', PRETO = 'FF000000';
+  var DIA1 = 11, DIA7 = 17; // colunas K a Q
+
+  // Largura das colunas dos dias (pedido do usuário em 17/11/2026): as sete com a mesma largura, a menor
+  // em que cabe o texto mais comprido escrito nelas. A medida é feita no navegador, em Calibri 26; a
+  // largura do Excel é quase exatamente pixels / 7 (conferido com o ajuste automático do próprio Excel).
+  var maiorDia = 0, medindo = false, regua = null;
+  function mede(texto, negrito) {
+    if (!regua) regua = document.createElement('canvas').getContext('2d');
+    regua.font = (negrito ? 'bold ' : '') + '26pt Calibri, Carlito, Arial, sans-serif';
+    return regua.measureText(String(texto)).width;
+  }
+  function anotaDia(valor, est) {
+    if (valor === undefined || valor === null || valor === '') return;
+    var texto = typeof valor.getTime === 'function' ? '00/00/00' : String(valor);
+    texto.split('\n').forEach(function (l) { maiorDia = Math.max(maiorDia, mede(l, est.negrito)); });
+  }
+  function aplicaLarguraDias(ws) {
+    var w = Math.min(255, Math.ceil((maiorDia / 7 + 1.5) * 100) / 100);
+    for (var c = DIA1; c <= DIA7; c++) ws.getColumn(c).width = w;
+    medindo = false;
+    return w;
+  }
   var BLOCO = { E: 'EXECUTADO', P1: 'PRIMEIRA SEMANA', P2: 'SEGUNDA SEMANA' };
 
   function nomeAba(t) { return (t.id + ' ' + t.sigla).replace(/[\[\]:*?\/\\]/g, '-').slice(0, 31); }
@@ -27,6 +49,7 @@ var Exportacao = (function () {
   // est: { negrito, cor, fundo, h, v, quebra, fmt, b: { top, bottom, left, right } }
   function cel(ws, r, c, valor, est) {
     est = est || {};
+    if (medindo && c >= DIA1 && c <= DIA7) anotaDia(valor, est);
     var x = ws.getCell(r, c);
     if (valor !== undefined && valor !== null && valor !== '') x.value = valor;
     x.font = { name: 'Calibri', size: 26, bold: !!est.negrito, color: { argb: est.cor || PRETO } };
@@ -43,10 +66,12 @@ var Exportacao = (function () {
   function faixa(ws, r, c1, c2, est) { for (var c = c1; c <= c2; c++) cel(ws, r, c, undefined, est); }
   function finas(base) { return { top: 'thin', bottom: base || 'thin', left: 'thin', right: 'thin' }; }
 
-  // altura da linha pelo texto mais longo (a fonte 26 cabe ~0,4 caractere por unidade de largura)
+  // altura da linha pelo texto mais longo (a fonte 26 cabe ~0,4 caractere por unidade de largura).
+  // As colunas dos dias não entram: a largura delas é ajustada para o texto caber numa linha só.
   function altura(textos, minimo) {
     var linhas = 1;
     Object.keys(textos).forEach(function (c) {
+      if (c >= DIA1 && c <= DIA7) return;
       var t = String(textos[c] || ''), cabe = Math.max(4, Math.floor(LARG[c] * 0.4));
       linhas = Math.max(linhas, t.split('\n').reduce(function (s, p) { return s + Math.max(1, Math.ceil(p.length / cabe)); }, 0));
     });
@@ -211,6 +236,10 @@ var Exportacao = (function () {
         });
       });
     });
+    // quantos caracteres cabem numa linha da largura C a V (as larguras dos dias já estão definidas)
+    var total = 0;
+    for (var c = C; c <= V; c++) total += ws.getColumn(c).width;
+    var cabeNaLinha = Math.max(40, Math.floor(total * 0.38));
     ws.getRow(r).height = 24; r++;                     // linha em branco
     faixa(ws, r, C, V, {});
     cel(ws, r, C, 'OBSERVAÇÕES:', { negrito: true, h: 'left', quebra: false });
@@ -221,7 +250,7 @@ var Exportacao = (function () {
       var base = k === its.length - 1 ? { bottom: 'medium' } : {};
       faixa(ws, r, C, V, { b: base });
       cel(ws, r, C, texto ? (k + 1) + '. ' + texto : '', { h: 'left', b: base });
-      ws.getRow(r).height = Math.max(24.75, Math.ceil(texto.length / 400) * 34 + 6);
+      ws.getRow(r).height = Math.max(24.75, Math.ceil(texto.length / cabeNaLinha) * 34 + 6);
       r++;
     });
     return r;
@@ -267,9 +296,11 @@ var Exportacao = (function () {
                    margins: { left: 0.118, right: 0.118, top: 0.197, bottom: 0.197, header: 0, footer: 0 } }
     });
     Object.keys(LARG).forEach(function (c) { ws.getColumn(+c).width = LARG[c]; });
+    maiorDia = 0; medindo = true;
     cabecalho(ws, t);
     logos(wb, ws);
     var r = corpo(ws, t, 13);
+    aplicaLarguraDias(ws);
     r = observacoes(ws, t, r);
     var ultima = rodape(ws, r);
     moldura(ws, ultima);
