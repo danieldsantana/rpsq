@@ -91,6 +91,8 @@ def acha(nome):
 
 
 def main():
+    # o console do Windows pode não ter todos os caracteres (setas, por exemplo); troca em vez de parar
+    sys.stdout.reconfigure(errors="replace")
     args = sys.argv[1:]
     if args and args[0] == "--foto":
         if len(args) < 2:

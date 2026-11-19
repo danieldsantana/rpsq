@@ -53,6 +53,14 @@
 //                                  bloqueiam com a internet funcionando; aí o app busca as mudanças
 //                                  de tempos em tempos e continua editável
 //
+// --- Histórico (o banco grava sozinho a cada alteração; o app só lê) ---
+//   listarHistorico(semana, atividadeId, canteiroId)
+//                               -> [ { tipo, dia, campo, antes, depois, porNome, em } ]  mais recente primeiro
+//                                  campo: 'torres' | 'comentario' | 'a_confirmar' | 'encarregado' | 'previsto' | 'acumulado'
+//                                  tipo e dia vêm null quando não se aplicam (encarregado: só dia null;
+//                                  previsto e acumulado: os dois null, e valem para todos os canteiros)
+//                                  em: data e hora em ISO
+//
 // --- Administração ---
 //   listarUsuarios()            -> [ { id, email, nome, papel, ativo } ]
 //   gravarUsuario({ email, nome, papel, ativo })   inclui ou altera pelo e-mail do login; a pessoa
@@ -180,7 +188,7 @@ var DadosMemoria = (function () {
   }
 
   function reiniciar() {
-    M = { base: null, semanas: [], celulas: [], linhas: [], planilha: [], controle: [],
+    M = { base: null, semanas: [], celulas: [], linhas: [], planilha: [], controle: [], historico: [],
           usuario: { id: 'memoria', nome: 'USUÁRIO DE TESTE', papel: 'admin' },
           usuarios: [{ id: 'memoria', email: 'teste@exemplo.com', nome: 'USUÁRIO DE TESTE', papel: 'admin', ativo: true }],
           // logins que "existem no projeto" (no Supabase, auth.users); só esses podem entrar na lista do RPSQ
@@ -226,6 +234,15 @@ var DadosMemoria = (function () {
     M.ouvintes.forEach(function (o) {
       if (registro.semana === undefined || registro.semana === o.semana) o.fn({ tabela: tabela, registro: copia(registro) });
     });
+  }
+
+  // como o gatilho do banco: anota o campo se o valor mudou
+  function registra(semana, canteiroId, atividadeId, tipo, dia, campo, antes, depois) {
+    if (antes === undefined) antes = null;
+    if (depois === undefined) depois = null;
+    if (JSON.stringify(antes) === JSON.stringify(depois)) return;
+    M.historico.push({ semana: semana, canteiroId: canteiroId, atividadeId: atividadeId, tipo: tipo, dia: dia, campo: campo,
+                       antes: copia(antes), depois: copia(depois), porNome: M.usuario.nome, em: new Date().toISOString() });
   }
 
   // grava sem conferir permissão (usada pelas funções públicas e pela simulação de outra pessoa)
@@ -337,12 +354,22 @@ var DadosMemoria = (function () {
         var ruins = campos.torres.filter(function (c) { return !r.existe(c); });
         if (ruins.length) return falha('Torres que não existem no trecho ' + t.id + ': ' + ruins.join(', '));
       }
-      return ok(gravadores.celulas({ semana: semana, canteiroId: canteiroId, atividadeId: atividadeId, tipo: tipo, dia: dia,
-        torres: campos.torres, comentario: campos.comentario, aConfirmar: campos.aConfirmar }));
+      var antes = copia(acha(M.celulas, ['semana', 'canteiroId', 'atividadeId', 'tipo', 'dia'], [semana, canteiroId, atividadeId, tipo, dia]) ||
+                        { torres: [], comentario: '', aConfirmar: false });
+      var x = gravadores.celulas({ semana: semana, canteiroId: canteiroId, atividadeId: atividadeId, tipo: tipo, dia: dia,
+        torres: campos.torres, comentario: campos.comentario, aConfirmar: campos.aConfirmar });
+      [['torres', 'torres'], ['comentario', 'comentario'], ['a_confirmar', 'aConfirmar']].forEach(function (c) {
+        registra(semana, canteiroId, atividadeId, tipo, dia, c[0], antes[c[1]], x[c[1]]);
+      });
+      return ok(x);
     },
     gravarEncarregado: function (semana, canteiroId, atividadeId, tipo, nome) {
       var erro = podeGravar(semana); if (erro) return falha(erro);
-      return ok(gravadores.linhas({ semana: semana, canteiroId: canteiroId, atividadeId: atividadeId, tipo: tipo, encarregado: nome }));
+      var l = acha(M.linhas, ['semana', 'canteiroId', 'atividadeId', 'tipo'], [semana, canteiroId, atividadeId, tipo]);
+      var antes = l ? l.encarregado : '';
+      var x = gravadores.linhas({ semana: semana, canteiroId: canteiroId, atividadeId: atividadeId, tipo: tipo, encarregado: nome });
+      registra(semana, canteiroId, atividadeId, tipo, null, 'encarregado', antes, x.encarregado);
+      return ok(x);
     },
     gravarVisibilidade: function (semana, canteiroId, atividadeId, visivel) {
       var erro = podeGravar(semana); if (erro) return falha(erro);
@@ -350,7 +377,19 @@ var DadosMemoria = (function () {
     },
     gravarControle: function (semana, atividadeId, campos) {
       var erro = podeGravar(semana); if (erro) return falha(erro);
-      return ok(gravadores.controle({ semana: semana, atividadeId: atividadeId, previsto: campos.previsto, acumulado: campos.acumulado }));
+      var antes = copia(acha(M.controle, ['semana', 'atividadeId'], [semana, atividadeId]) || { previsto: null, acumulado: null });
+      var x = gravadores.controle({ semana: semana, atividadeId: atividadeId, previsto: campos.previsto, acumulado: campos.acumulado });
+      ['previsto', 'acumulado'].forEach(function (c) { registra(semana, null, atividadeId, null, null, c, antes[c], x[c]); });
+      return ok(x);
+    },
+
+    // ---------- histórico ----------
+    listarHistorico: function (semana, atividadeId, canteiroId) {
+      return ok(M.historico.filter(function (h) {
+        return h.semana === semana && h.atividadeId === atividadeId && (h.canteiroId === canteiroId || h.canteiroId === null);
+      }).slice().reverse().map(function (h) {
+        return { tipo: h.tipo, dia: h.dia, campo: h.campo, antes: copia(h.antes), depois: copia(h.depois), porNome: h.porNome, em: h.em };
+      }));
     },
 
     // ---------- tempo real e conexão ----------
@@ -374,7 +413,7 @@ var DadosMemoria = (function () {
       x.nome = String(u.nome || '').trim(); x.papel = u.papel; x.ativo = u.ativo !== false;
       return ok();
     },
-    copiaDeSeguranca: function () { return ok({ semanas: M.semanas, celulas: M.celulas, linhas: M.linhas, planilha: M.planilha, controle: M.controle }); },
+    copiaDeSeguranca: function () { return ok({ semanas: M.semanas, celulas: M.celulas, linhas: M.linhas, planilha: M.planilha, controle: M.controle, historico: M.historico }); },
 
     // ---------- só de teste ----------
     reiniciar: reiniciar,

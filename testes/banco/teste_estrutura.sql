@@ -197,4 +197,37 @@ end $$;
 select torre, partes, data from rpsq_registros where semana = '2026-11-23' and tipo = 'P2' and data = '2026-12-06' order by torre;
 reset role;
 
+\echo '===== 12. Historico de edicoes (script 007)'
+do $$ begin
+  assert (select count(*) from rpsq_historico where semana = '2026-11-16' and tipo = 'P1' and dia = 0 and campo = 'torres') = 2, 'P1 dia 0: duas gravacoes de torres';
+  assert (select antes from rpsq_historico where semana = '2026-11-16' and tipo = 'P1' and dia = 0 and campo = 'torres' order by id desc limit 1) = '["0/1", "0/2"]'::jsonb, 'antes da segunda gravacao';
+  assert (select depois from rpsq_historico where semana = '2026-11-16' and tipo = 'P1' and dia = 0 and campo = 'torres' order by id desc limit 1) = '["0/1", "0/2", "7/1A"]'::jsonb, 'depois da segunda gravacao';
+  assert (select por_nome from rpsq_historico where semana = '2026-11-16' and tipo = 'P1' and dia = 0 and campo = 'torres' limit 1) = 'EDITA', 'nome de quem gravou';
+  assert (select count(*) from rpsq_historico where semana = '2026-11-16' and campo = 'encarregado') = 3, 'encarregados';
+  assert (select count(*) from rpsq_historico where semana = '2026-11-16' and campo in ('previsto', 'acumulado') and canteiro_id is null and tipo is null) = 2, 'previsto e acumulado';
+  assert (select count(*) from rpsq_historico where semana = '2026-11-16' and tipo = 'P1' and dia = 2) = 0, 'celula gravada vazia nao gera historico';
+  assert not exists (select 1 from rpsq_historico where semana = '2026-11-23' and campo in ('torres', 'encarregado', 'previsto', 'acumulado') and tipo is distinct from 'P2'), 'abrir semana nao gera historico';
+  assert (select count(*) from rpsq_historico where semana = '2026-11-23' and campo = 'a_confirmar' and antes = 'true' and depois = 'false' and por_nome = 'EDITA') = 1, 'confirmacao da amarela';
+end $$;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+-- regravar o mesmo valor nao gera linha nova
+do $$ declare n bigint; begin
+  n := (select count(*) from rpsq_historico);
+  update rpsq_celulas set torres = torres where semana = '2026-11-23' and tipo = 'P2' and dia = 6;
+  assert (select count(*) from rpsq_historico) = n, 'regravar o mesmo valor gerou historico';
+  update rpsq_celulas set comentario = 'novo' where semana = '2026-11-23' and tipo = 'P2' and dia = 6;
+  assert (select count(*) from rpsq_historico) = n + 1, 'comentario nao entrou no historico';
+end $$;
+select teste.falha($$insert into rpsq_historico (semana, atividade_id, campo) values ('2026-11-23', 1, 'torres')$$) as edita_insere_historico;
+select teste.falha($$update rpsq_historico set por_nome = 'X'$$) as edita_altera_historico;
+select teste.falha($$delete from rpsq_historico$$) as edita_apaga_historico;
+reset role;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+do $$ begin assert (select count(*) from rpsq_historico) > 0, 'admin deveria ler o historico'; end $$;
+reset role;
+set role anon;
+select teste.falha('select * from rpsq_historico') as anon_historico;
+reset role;
+select campo, tipo, dia, antes, depois, por_nome from rpsq_historico where semana = '2026-11-23' order by id;
+
 \echo 'TODOS OS TESTES DO BANCO PASSARAM'

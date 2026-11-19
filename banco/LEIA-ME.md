@@ -34,3 +34,4 @@ O `001_estrutura.sql` termina com um comando comentado para incluir o primeiro a
 | `004_identificacao_formulario.sql` | Correção do texto de identificação do formulário no Excel | pasta local, fora do Git | 16/11/2026 |
 | `005_limpeza_e_semana_09_11.sql` | Apaga os lançamentos de teste e grava a primeira semana a partir das planilhas antigas | pasta local, fora do Git | 16/11/2026 |
 | `006_partes_fundacao.sql` | Partes das fundações: coluna `partes` nas atividades, torre com pés/estais nas células e na consulta `rpsq_registros`; pode ser rodado de novo | nesta pasta | 19/11/2026 |
+| `007_historico.sql` | Histórico de edições: tabela `rpsq_historico` preenchida pelo banco a cada alteração de torres, comentário, confirmação, encarregado, previsto e acumulado; pode ser rodado de novo | nesta pasta | 19/11/2026 |

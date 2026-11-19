@@ -259,6 +259,21 @@ var DadosSupabase = (function () {
   function aoMudarConexao(fn) { ouvintesConexao.push(fn); }
   function aoMudarTempoReal(fn) { ouvintesTempoReal.push(fn); }
 
+  // ---------- histórico (script 007; o banco grava sozinho a cada alteração) ----------
+  function listarHistorico(sem, atividadeId, canteiroId) {
+    var c = cliente();
+    return lerTudo(function () {
+      return c.from('rpsq_historico').select('tipo, dia, campo, antes, depois, por_nome, em')
+        .eq('semana', sem).eq('atividade_id', atividadeId)
+        .or('canteiro_id.eq.' + Number(canteiroId) + ',canteiro_id.is.null')
+        .order('id', { ascending: false });
+    }).then(function (l) {
+      return l.map(function (x) {
+        return { tipo: x.tipo, dia: x.dia, campo: x.campo, antes: x.antes, depois: x.depois, porNome: x.por_nome || '', em: x.em };
+      });
+    });
+  }
+
   // ---------- administração ----------
   function listarUsuarios() { return cliente().rpc('rpsq_listar_usuarios').then(dados); }
   function gravarUsuario(u) {
@@ -271,7 +286,7 @@ var DadosSupabase = (function () {
       rpsq_config: ['chave'], rpsq_trechos: ['id'], rpsq_canteiros: ['id'], rpsq_torres: ['trecho_id', 'ordem'],
       rpsq_atividades: ['id'], rpsq_semanas: ['inicio'], rpsq_planilha: ['semana', 'canteiro_id', 'atividade_id'],
       rpsq_linhas: ['semana', 'canteiro_id', 'atividade_id', 'tipo'], rpsq_celulas: ['semana', 'canteiro_id', 'atividade_id', 'tipo', 'dia'],
-      rpsq_controle: ['semana', 'atividade_id'], rpsq_usuarios: ['user_id']
+      rpsq_controle: ['semana', 'atividade_id'], rpsq_usuarios: ['user_id'], rpsq_historico: ['id']
     }, tabelas = Object.keys(chaves);
     return Promise.all(tabelas.map(function (t) {
       return lerTudo(function () {
@@ -292,6 +307,7 @@ var DadosSupabase = (function () {
     listarSemanas: listarSemanas, carregarSemana: carregarSemana, gravarSemana: gravarSemana, abrirSemana: abrirSemana,
     gravarCelula: gravarCelula, gravarEncarregado: gravarEncarregado, gravarVisibilidade: gravarVisibilidade, gravarControle: gravarControle,
     assinar: assinar, aoMudarConexao: aoMudarConexao, aoMudarTempoReal: aoMudarTempoReal,
+    listarHistorico: listarHistorico,
     listarUsuarios: listarUsuarios, gravarUsuario: gravarUsuario, copiaDeSeguranca: copiaDeSeguranca
   };
 })();

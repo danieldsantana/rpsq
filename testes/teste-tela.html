@@ -272,6 +272,31 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('canal de volta: aviso some', $('conexao').textContent === '');
   });
 
+  await parte('histórico', async function () {
+    function espera() { return new Promise(function (r) { setTimeout(r, 30); }); }
+    function itens() { return qa('#pane ol.hist li').map(function (li) { return li.textContent; }); }
+    celula('2.1.1', 'P2', 4);
+    clica('#b-hist'); await espera();
+    confere('botão Histórico fica marcado', $('b-hist').getAttribute('aria-pressed') === 'true');
+    var l = itens();
+    confere('histórico da célula: as quatro gravações de torres, a mais recente primeiro', l.length === 4 && l.every(function (x) { return /Torres:/.test(x); }), l);
+    confere('mostra quem alterou', /USUÁRIO DE TESTE/.test(l[0]), l[0]);
+    confere('a primeira gravação parte do vazio', /Torres: \(vazio\) → 3\/2 \(Pés A e B\)/.test(l[3]), l[3]);
+    confere('a última mostra antes e depois', /→ 3\/2 \(Pés A, B e D\), 5\/1 \(Estais A e B\), 6\/1, 6\/2$/.test(l[0]), l[0]);
+    celula('2.1.1', 'P2', 0); await espera();
+    l = itens();
+    confere('célula do encarregado mostra o encarregado', l.length === 1 && /Encarregado: \(vazio\) → ENCARREGADO G/.test(l[0]), l);
+    clica('#h-tudo'); await espera();
+    l = itens();
+    confere('toda a atividade traz previsto ou acumulado e diz onde foi', l.some(function (x) { return /Previsto e acumulado(Total previsto|Acumulado atual)/.test(x); }) &&
+      l.some(function (x) { return /PROG\. 2 · Qui 26\/11Torres/.test(x); }), l.slice(0, 6));
+    clica('#h-tudo'); clica('#h-voltar');
+    confere('voltar ao lançamento', !!$('p-enc') && $('b-hist').getAttribute('aria-pressed') === 'false');
+    muda('#f-cant', 'todos'); clica('#b-hist');
+    confere('no consolidado pede um canteiro', $('pane').hidden && /Escolha um canteiro/.test(D.body.textContent));
+    muda('#f-cant', String(cantId('Norte')));
+  });
+
   await parte('revisão e elaborado', function () {
     muda('#f-rev', '1');
   });

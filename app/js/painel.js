@@ -30,12 +30,98 @@ var Painel = (function () {
     return t.length ? t[Math.floor(t.length / 2)][0] : '';
   }
 
+  // ---------- histórico (botão "Histórico" da barra) ----------
+  // Com o botão ligado, o painel mostra quem alterou a célula selecionada, quando e o quê, no lugar do
+  // lançamento. A lista vem do banco (o banco grava sozinho a cada alteração) e é buscada de novo ao trocar
+  // de atividade, ou passados alguns segundos.
+  var modoHistorico = false, tudo = false, hist = { chave: '', lista: null, erro: '', quando: 0 };
+  function alternarHistorico() {
+    if (App.E.canteiro === App.TODOS) { App.toast('Escolha um canteiro para ver o histórico de uma célula.'); return; }
+    modoHistorico = !modoHistorico;
+    hist.quando = 0;
+    desenhar();
+  }
+  function marcaBotao() {
+    var b = $('b-hist');
+    if (b) { b.setAttribute('aria-pressed', modoHistorico ? 'true' : 'false'); b.classList.toggle('on', modoHistorico); }
+  }
+  function carregaHistorico(s) {
+    var E = App.E, chave = E.semana.inicio + '|' + s.c + '|' + s.a.id;
+    if (hist.chave === chave && Date.now() - hist.quando < 5000) return;
+    hist = { chave: chave, lista: hist.chave === chave ? hist.lista : null, erro: '', quando: Date.now() };
+    Dados.listarHistorico(E.semana.inicio, s.a.id, s.c).then(function (l) {
+      if (hist.chave !== chave) return;
+      hist.lista = l; hist.erro = '';
+      if (modoHistorico) desenhar();
+    }).catch(function (e) {
+      if (hist.chave !== chave) return;
+      hist.erro = 'Não foi possível ler o histórico: ' + e.message;
+      if (modoHistorico) desenhar();
+    });
+  }
+  function quando(iso) {
+    var d = new Date(iso), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function textoHistorico(h, a) {
+    var r = App.regras(), vazio = '(vazio)';
+    function num(v) { return v === null || v === undefined || v === '' ? vazio : Number(v).toLocaleString('pt-BR'); }
+    function tor(l) { return l && l.length ? r.formatar(l, a.unidade) : vazio; }
+    switch (h.campo) {
+      case 'torres': return 'Torres: ' + tor(h.antes) + ' \u2192 ' + tor(h.depois);
+      case 'comentario':
+        if (!h.antes) return 'Comentário incluído: "' + h.depois + '"';
+        if (!h.depois) return 'Comentário removido: "' + h.antes + '"';
+        return 'Comentário: "' + h.antes + '" \u2192 "' + h.depois + '"';
+      case 'a_confirmar': return h.depois ? 'Ficou amarela (a confirmar)' : 'Célula amarela confirmada';
+      case 'encarregado': return 'Encarregado: ' + (h.antes || vazio) + ' \u2192 ' + (h.depois || vazio);
+      case 'previsto': return 'Total previsto: ' + num(h.antes) + ' \u2192 ' + num(h.depois);
+      case 'acumulado': return 'Acumulado atual: ' + num(h.antes) + ' \u2192 ' + num(h.depois);
+    }
+    return h.campo;
+  }
+  function ondeHistorico(h) {
+    if (!h.tipo) return 'Previsto e acumulado';
+    var tp = App.tipo(h.tipo);
+    return tp.tar + ' · ' + (h.dia === null || h.dia === undefined ? 'Encarregado' : App.DIAS[h.dia] + ' ' + App.ddmm(App.data(h.tipo, h.dia)));
+  }
+  function desenharHistorico(pn, s) {
+    var h = '<h3>Histórico</h3>';
+    if (!s) {
+      pn.innerHTML = h + '<p class="dica">Clique numa célula para ver quem alterou, quando e o quê.</p>' +
+        '<div class="lin"><button class="rb" id="h-voltar">Voltar ao lançamento</button></div>';
+      return;
+    }
+    carregaHistorico(s);
+    h += '<div class="onde">' + esc(s.a.codigo + ' ' + s.a.nome) + '<br>' + (tudo ? 'Toda a atividade · ' : s.tp.tar + ' · ' +
+      (s.col === 0 ? 'Encarregado' : App.DIAS[s.dia] + ' ' + App.ddmm(App.data(s.tipo, s.dia))) + ' · ') + esc(App.cant(s.c).nome) + '</div>' +
+      '<div class="lin"><button class="rb" id="h-tudo">' + (tudo ? 'Só esta célula' : 'Toda a atividade') + '</button>' +
+      '<button class="rb" id="h-voltar">Voltar ao lançamento</button></div>';
+    var corpo;
+    if (hist.erro) corpo = '<p class="erro">' + esc(hist.erro) + '</p>';
+    else if (!hist.lista) corpo = '<p class="dica">Carregando…</p>';
+    else {
+      var lista = hist.lista.filter(function (x) {
+        if (tudo) return true;
+        if (x.tipo !== s.tipo) return false;
+        return s.col === 0 ? x.campo === 'encarregado' : x.dia === s.dia && x.campo !== 'encarregado';
+      });
+      corpo = lista.length ? '<ol class="hist">' + lista.map(function (x) {
+        return '<li><div class="h-q">' + quando(x.em) + ' · ' + esc(x.porNome || 'sem nome (script no banco)') + '</div>' +
+          (tudo ? '<div class="h-o">' + esc(ondeHistorico(x)) + '</div>' : '') + '<div>' + esc(textoHistorico(x, s.a)) + '</div></li>';
+      }).join('') + '</ol>' : '<p class="dica">Nenhuma alteração registrada' + (tudo ? ' nesta atividade' : ' nesta célula') + ' nesta semana.</p>';
+    }
+    pn.innerHTML = h + '<div class="sec">' + corpo + (tudo ? '' : '<p class="dica">O total previsto e o acumulado aparecem em "Toda a atividade".</p>') + '</div>';
+  }
+
   // ---------- desenho ----------
   function desenhar() {
     var pn = $('pane'), E = App.E;
+    marcaBotao();
     if (E.canteiro === App.TODOS || !E.semana) { pn.hidden = true; pn.innerHTML = ''; return; }
     pn.hidden = false;
     var s = sel(), ed = App.podeEditar(), motivo = App.motivoSoLeitura();
+    if (modoHistorico) { desenharHistorico(pn, s); return; }
     if (!s) {
       pn.innerHTML = '<h3>Lançamento</h3><p class="dica">' +
         esc(ed ? 'Clique numa célula da planilha para lançar as torres, o encarregado ou um comentário.' : motivo) + '</p>';
@@ -138,6 +224,7 @@ var Painel = (function () {
   function apagar() {
     var s = sel();
     if (!s || !App.podeEditar()) return;
+    hist.quando = 0;
     if (s.col === 0) App.gravarEncarregado(s.c, s.a.id, s.tipo, '');
     else App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { torres: [] });
     redesenhaTudo();
@@ -199,6 +286,9 @@ var Painel = (function () {
       if (b.id === 'p-cm-rm') { App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { comentario: '' }); redesenhaTudo(); return true; }
       if (d.conf) { App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { aConfirmar: false }); redesenhaTudo(); return true; }
     }
+    if (b.id === 'b-hist') { alternarHistorico(); return true; }
+    if (b.id === 'h-voltar') { modoHistorico = false; desenhar(); return true; }
+    if (b.id === 'h-tudo') { tudo = !tudo; desenhar(); return true; }
     if (b.id === 'p-enc-ok') { redesenhaTudo(); return true; }
     if (b.id === 'b-confall') { confirmarTodas(); return true; }
     if (b.id === 'b-add') {
