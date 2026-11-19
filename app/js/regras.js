@@ -2,15 +2,19 @@
 // Especificação: seção 4 (regras da célula) e seção 9 (consolidado).
 //
 // A célula guarda uma LISTA DE CÓDIGOS de torre (é o que vai para rpsq_celulas.torres).
-// Em atividade de KM, cada código é a torre onde o vão começa.
+// Em atividade de KM, cada código vale o vão à frente daquela torre.
 // O texto mostrado na célula é sempre gerado a partir dessa lista, nunca digitado.
+//
+// KM (regra em vigor desde 19/11/2026, pedido do usuário): o texto mostra as torres lançadas, como se
+// escreve nas planilhas da obra. Duas ou mais seguidas viram "A a B" (B = a última torre lançada), e o
+// intervalo "de A até B" inclui as duas pontas, cada uma com o seu vão à frente. Antes, B era a torre
+// onde o último vão terminava e o intervalo não incluía o vão de B. O que fica gravado não mudou.
 //
 // Uso:
 //   var r = Regras.criar(trecho.torres);      // torres: [[codigo, familia, tipo, vaoM], ...] na ordem da linha
 //   r.existe('5/1')                           -> true/false
 //   r.lerTorre(' 05 / 1 ')                    -> '5/1' (o código como está no trecho), ou null se não for torre
-//   r.intervalo('5/1', '6/2', 'TORRE')        -> ['5/1','5/2','6/1','6/2']   inclui as pontas
-//   r.intervalo('5/1', '6/2', 'KM')           -> ['5/1','5/2','6/1']         vãos; o de 6/2 não entra
+//   r.intervalo('5/1', '6/2', unidade)        -> ['5/1','5/2','6/1','6/2']   inclui as pontas (TORRE e KM)
 //   r.ordenar(codigos)                        -> na ordem do trecho, sem repetição
 //   r.sequencias(codigos, unidade)            -> [ { codigos: [...], texto: '5/1 a 6/2' }, ... ]  (etiquetas do painel)
 //   r.formatar(codigos, unidade)              -> '5/1 a 6/2, 10/1, 13/1 a 15/2'
@@ -47,7 +51,6 @@ var Regras = (function () {
   function criar(torres) {
     var codigos = torres.map(function (t) { return t[0]; });
     var vaos = torres.map(function (t) { return Number(t[3]) || 0; });
-    var ultima = codigos.length - 1;
     var indice = {};
     codigos.forEach(function (c, i) { indice[normalizar(c) || c] = i; });
 
@@ -78,14 +81,9 @@ var Regras = (function () {
     }
 
     function textoBloco(a, b, km) {
-      if (km) {
-        if (a === b) return codigos[a];
-        // "A a B": B é a torre em que o último vão termina
-        if (b < ultima) return codigos[a] + ' a ' + codigos[b + 1];
-        // o último vão do trecho não tem torre depois dele: "A a Z, Z" (Z sozinha = o vão de Z)
-        return codigos[a] + ' a ' + codigos[b] + ', ' + codigos[b];
-      }
       if (a === b) return codigos[a];
+      // KM: torres seguidas, a partir de duas, viram "A a B" (B = a última torre lançada)
+      if (km) return codigos[a] + ' a ' + codigos[b];
       if (b - a >= 2) return codigos[a] + ' a ' + codigos[b];
       return codigos[a] + ', ' + codigos[b]; // duas seguidas ficam separadas por vírgula
     }
@@ -99,13 +97,12 @@ var Regras = (function () {
       return i >= 0 ? codigos[i] : n;
     }
 
-    // null se alguma das pontas não existe no trecho
-    function intervalo(de, ate, unidade) {
+    // inclui as duas pontas, em TORRE e em KM (em KM, cada torre vale o vão à frente dela);
+    // null se alguma das pontas não existe no trecho. A unidade fica no parâmetro por compatibilidade.
+    function intervalo(de, ate) {
       var i = posicao(de), j = posicao(ate);
       if (i < 0 || j < 0) return null;
       if (i > j) { var x = i; i = j; j = x; }
-      // em KM, o vão à frente da última torre não entra; com a mesma torre nas pontas, vale a torre sozinha
-      if (ehKm(unidade) && j > i) j = j - 1;
       return codigos.slice(i, j + 1);
     }
 

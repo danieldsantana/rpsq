@@ -47,18 +47,19 @@ bloco('TORRE', function () {
   confere('unidade UND segue a regra de TORRE', r.total([['5/1', '5/2']], 'UND') === 2 && r.formatar(['5/1', '5/2', '6/1'], 'UND') === '5/1 a 6/1');
 });
 
+// KM (regra desde 19/11/2026): o texto mostra as torres lançadas; cada uma vale o vão à frente dela.
 bloco('KM', function () {
-  confere('intervalo não inclui o vão da última torre', igual(r.intervalo('5/1', '6/2', 'KM'), ['5/1', '5/2', '6/1']), r.intervalo('5/1', '6/2', 'KM'));
+  confere('intervalo inclui as duas pontas', igual(r.intervalo('5/1', '6/2', 'KM'), ['5/1', '5/2', '6/1', '6/2']), r.intervalo('5/1', '6/2', 'KM'));
   confere('intervalo com a mesma torre vale a torre sozinha', igual(r.intervalo('5/1', '5/1', 'KM'), ['5/1']));
-  confere('intervalo de torres vizinhas = um vão', igual(r.intervalo('5/1', '5/2', 'KM'), ['5/1']));
+  confere('intervalo de torres vizinhas = as duas torres, dois vãos', igual(r.intervalo('5/1', '5/2', 'KM'), ['5/1', '5/2']));
   confere('torre sozinha vale o vão à frente', perto(r.total([['5/1']], 'KM'), VAO['5/1'] / 1000), r.total([['5/1']], 'KM'));
-  confere('um vão sozinho aparece como a torre', r.formatar(['10/1'], 'KM') === '10/1');
-  confere('vãos seguidos: A a B, com B onde termina o último vão', r.formatar(['5/1', '5/2', '6/1'], 'KM') === '5/1 a 6/2', r.formatar(['5/1', '5/2', '6/1'], 'KM'));
-  confere('dois vãos seguidos também viram intervalo', r.formatar(['5/1', '5/2'], 'KM') === '5/1 a 6/1', r.formatar(['5/1', '5/2'], 'KM'));
+  confere('uma torre sozinha aparece como a torre', r.formatar(['10/1'], 'KM') === '10/1');
+  confere('torres seguidas: A a B, com B a última torre lançada', r.formatar(['5/1', '5/2', '6/1'], 'KM') === '5/1 a 6/1', r.formatar(['5/1', '5/2', '6/1'], 'KM'));
+  confere('duas torres seguidas também viram "A a B" (o caso relatado: 49/1 e 49/2)', r.formatar(['5/1', '5/2'], 'KM') === '5/1 a 5/2', r.formatar(['5/1', '5/2'], 'KM'));
   var cel = [].concat(r.intervalo('5/1', '6/2', 'KM'), ['10/1'], r.intervalo('13/1', '15/2', 'KM'));
   confere('exemplo da especificação em KM', r.formatar(cel, 'KM') === '5/1 a 6/2, 10/1, 13/1 a 15/2', r.formatar(cel, 'KM'));
   var dias = [r.intervalo('5/1', '6/2', 'KM'), ['5/2', '10/1'], [], r.intervalo('13/1', '15/2', 'KM')];
-  var esperado = km(['5/1', '5/2', '6/1', '10/1', '13/1', '13/2', '14/1', '14/2', '15/1']);
+  var esperado = km(['5/1', '5/2', '6/1', '6/2', '10/1', '13/1', '13/2', '14/1', '14/2', '15/1', '15/2']);
   confere('total em km = soma manual dos vãos diferentes', perto(r.total(dias, 'KM'), esperado), [r.total(dias, 'KM'), esperado]);
   confere('total sem resíduo de vírgula flutuante', String(r.total([['0/1', '0/2', '0/3']], 'KM')).length <= 8, r.total([['0/1', '0/2', '0/3']], 'KM'));
   confere('unidade em minúsculas também é KM', perto(r.total([['5/1']], 'km'), VAO['5/1'] / 1000));
@@ -67,7 +68,7 @@ bloco('KM', function () {
 bloco('torres com letra', function () {
   confere('intervalo em TORRE passa pelas com letra, na ordem do trecho',
     igual(r.intervalo('6/2', '7/1', 'TORRE'), ['6/2', '7/1A', '7/2A', '7/1']), r.intervalo('6/2', '7/1', 'TORRE'));
-  confere('intervalo em KM idem', igual(r.intervalo('6/2', '7/1', 'KM'), ['6/2', '7/1A', '7/2A']), r.intervalo('6/2', '7/1', 'KM'));
+  confere('intervalo em KM idem', igual(r.intervalo('6/2', '7/1', 'KM'), ['6/2', '7/1A', '7/2A', '7/1']), r.intervalo('6/2', '7/1', 'KM'));
   confere('formata respeitando a ordem do trecho', r.formatar(['7/1', '7/2A', '7/1A', '6/2'], 'TORRE') === '6/2 a 7/1', r.formatar(['7/1', '7/2A', '7/1A', '6/2'], 'TORRE'));
   confere('soma os vãos das torres com letra', perto(r.total([['7/1A', '7/2A']], 'KM'), km(['7/1A', '7/2A'])));
   confere('lê intervalo com letra na ponta', igual(r.ler('7/1A a 7/1', 'TORRE').codigos, ['7/1A', '7/2A', '7/1']), r.ler('7/1A a 7/1', 'TORRE'));
@@ -75,7 +76,7 @@ bloco('torres com letra', function () {
 
 bloco('último vão do trecho', function () {
   var fim2 = [PENULTIMA, ULTIMA];
-  confere('KM com o vão da última torre escreve "A a Z, Z"', r.formatar(fim2, 'KM') === PENULTIMA + ' a ' + ULTIMA + ', ' + ULTIMA, r.formatar(fim2, 'KM'));
+  confere('KM com a última torre do trecho escreve "A a Z"', r.formatar(fim2, 'KM') === PENULTIMA + ' a ' + ULTIMA, r.formatar(fim2, 'KM'));
   confere('e lê de volta os dois vãos', igual(r.ler(r.formatar(fim2, 'KM'), 'KM').codigos, fim2), r.ler(r.formatar(fim2, 'KM'), 'KM'));
   confere('a última sozinha em KM', r.formatar([ULTIMA], 'KM') === ULTIMA);
 });

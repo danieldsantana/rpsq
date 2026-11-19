@@ -83,9 +83,9 @@ document.getElementById('app').addEventListener('load', async function () {
   await parte('KM', function () {
     var td = celula('1.2.1', 'E', 1);
     $('p-de').value = '0/1'; $('p-ate').value = '1/1'; clica('#p-add-i');
-    confere('KM: intervalo não inclui o vão da última torre', igual(torres('Norte', '1.2.1', 'E', 0), ['0/1', '0/2', '0/3']));
-    confere('KM: texto termina na torre onde o vão acaba', td().textContent === '0/1 a 1/1', td().textContent);
-    var vaos = App.E.trecho.torres.slice(0, 3).reduce(function (s, t) { return s + t[3]; }, 0) / 1000;
+    confere('KM: intervalo inclui as duas pontas', igual(torres('Norte', '1.2.1', 'E', 0), ['0/1', '0/2', '0/3', '1/1']));
+    confere('KM: texto mostra as torres lançadas', td().textContent === '0/1 a 1/1', td().textContent);
+    var vaos = App.E.trecho.torres.slice(0, 4).reduce(function (s, t) { return s + t[3]; }, 0) / 1000;
     var tot = td().parentNode.querySelector('td.calc').textContent;
     confere('KM: total é a soma dos vãos', tot === vaos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), [tot, vaos]);
     confere('KM: uma etiqueta por intervalo', qa('#pane .chip').length === 1);

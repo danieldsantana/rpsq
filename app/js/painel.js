@@ -55,7 +55,7 @@ var Painel = (function () {
         '<button class="rb" id="p-add-t">Adicionar</button></div>' + (km ? '<p class="dica">Em KM, uma torre sozinha conta o vão à frente dela.</p>' : '') + '</div>';
       h += '<div class="sec"><b>Adicionar um intervalo de torres</b><div class="lin"><label for="p-de">De</label><input type="text" id="p-de" list="dl-torres" autocomplete="off" placeholder="' + esc(ex) + '">' +
         '<label for="p-ate">até</label><input type="text" id="p-ate" list="dl-torres" autocomplete="off"><button class="rb" id="p-add-i">Adicionar</button></div>' +
-        (km ? '<p class="dica">Em KM, o intervalo conta os vãos de uma torre até a outra.</p>' : '') + '</div>';
+        (km ? '<p class="dica">Em KM, o intervalo inclui as duas torres; cada uma conta o vão à frente dela.</p>' : '') + '</div>';
       h += '<div class="erro" id="p-erro" role="alert"></div>';
     }
     var chips = km

@@ -72,14 +72,14 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('código mesclado nas linhas da atividade', ws.getCell('C' + rP1).isMerged);
     var rKm = linha('C', '1.2.1');
     var rKmP1 = linha('I', 'PRIMEIRA SEMANA', rKm);
-    confere('KM: texto e total em km', v('M' + rKmP1) === '5/1 a 7/1A' && Math.abs(v('R' + rKmP1) - App.regras('X1').total([['5/1', '5/2', '6/1', '6/2', '7/1A', '7/2A']], 'KM')) < 1e-9 &&
+    confere('KM: texto e total em km', v('M' + rKmP1) === '5/1 a 6/2' && Math.abs(v('R' + rKmP1) - App.regras('X1').total([['5/1', '5/2', '6/1', '6/2', '7/1A', '7/2A']], 'KM')) < 1e-9 &&
       ws.getCell('R' + rKmP1).numFmt === '0.00', [v('M' + rKmP1), v('R' + rKmP1)]);
     confere('avulsa sai', linha('C', '2.1.4') > 0);
     confere('atividade oculta não sai', linha('C', '5.1.1') < 0);
     confere('atividade sem lançamento não sai', linha('C', '4.1.1') < 0);
     var rObs = linha('C', 'OBSERVAÇÕES:');
     var obs = [rObs + 1, rObs + 2, rObs + 3].map(function (r) { return String(v('C' + r) || ''); }).join(' | ');
-    confere('observações com atividade, canteiro, linha, dia, torres e texto', /1\.2\.1 CONSTRUÇÃO DE ACESSO · NORTE · PROG\. 1 · Qua 18\/11 \(5\/1 a 7\/1A\): Manutenção da cerca/.test(obs), obs);
+    confere('observações com atividade, canteiro, linha, dia, torres e texto', /1\.2\.1 CONSTRUÇÃO DE ACESSO · NORTE · PROG\. 1 · Qua 18\/11 \(5\/1 a 6\/2\): Manutenção da cerca/.test(obs), obs);
     confere('comentário em célula vazia também sai', /Mudança da equipe/.test(obs));
     var rEl = linha('C', 'ELABORADO:');
     confere('rodapé ELABORADO e GERÊNCIA DA OBRA', rEl > rObs && v('M' + rEl) === 'GERÊNCIA DA OBRA:' && /^NOME:/.test(v('C' + (rEl + 1))));
