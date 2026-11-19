@@ -163,4 +163,38 @@ reset role;
 select * from public.cards;
 select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1;
 
+\echo '===== 11. Partes das fundacoes (script 006)'
+insert into rpsq_atividades (trecho_id, codigo, nome, unidade, topico, nome_topico) values
+  ('X1', '2.1.1', 'ESCAVAÇÃO - FUNDAÇÃO ESTAI / PÉ', 'TORRE', '2.1', 'FUNDACOES'),
+  ('X1', '2.1.2', 'ESCAVAÇÃO - FUNDAÇÃO MASTRO', 'TORRE', '2.1', 'FUNDACOES'),
+  ('X1', '2.1.3', 'CONCRETAGEM - FUNDAÇÃO MASTRO CENTRAL', 'TORRE', '2.1', 'FUNDACOES'),
+  ('X1', '2.1.4', 'ENSAIO - FUNDAÇÃO ESTAI', 'TORRE', '2.1', 'FUNDACOES'),
+  ('X1', '2.1.5', 'ARMAÇÃO - FUNDAÇÃO PLACA', 'TORRE', '2.1', 'FUNDACOES'),
+  ('X1', '4.1.20', 'OUTRA - FUNDAÇÃO ESTAI / PÉ', 'TORRE', '4.1', 'TOPICO 4.1');
+-- roda o 006 de novo: tem de poder rodar mais de uma vez e marcar as atividades novas
+\ir ../../banco/006_partes_fundacao.sql
+do $$ begin
+  assert (select partes from rpsq_atividades where codigo = '2.1.1') = 'pes', '2.1.1 deveria ser pes';
+  assert (select partes from rpsq_atividades where codigo = '2.1.2') = 'mastro', '2.1.2 deveria ser mastro';
+  assert (select partes from rpsq_atividades where codigo = '2.1.3') = 'mastro', '2.1.3 deveria ser mastro';
+  assert (select partes from rpsq_atividades where codigo = '2.1.4') = 'estais', '2.1.4 deveria ser estais';
+  assert (select partes from rpsq_atividades where codigo = '2.1.5') is null, 'placa nao tem partes';
+  assert (select partes from rpsq_atividades where codigo = '4.1.20') is null, 'fora do 2.1 nao muda';
+end $$;
+select teste.falha($$update rpsq_atividades set partes = 'outra' where codigo = '2.1.5'$$) as partes_invalida;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres) values ('2026-11-23', 1, 1, 'P2', 6, '{0/1:AB,7/1A,0/2:D}')
+  on conflict (semana, canteiro_id, atividade_id, tipo, dia) do update set torres = excluded.torres;
+select teste.falha($$insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres) values ('2026-11-23', 1, 1, 'P2', 5, '{0/1:}')$$) as partes_vazia;
+select teste.falha($$insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres) values ('2026-11-23', 1, 1, 'P2', 5, '{0/1:BA}')$$) as partes_fora_de_ordem;
+select teste.falha($$insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres) values ('2026-11-23', 1, 1, 'P2', 5, '{0/1:E}')$$) as parte_inexistente;
+select teste.falha($$insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres) values ('2026-11-23', 1, 1, 'P2', 5, '{99/9:A}')$$) as torre_inexistente_com_partes;
+do $$ begin
+  assert (select partes from rpsq_registros where semana = '2026-11-23' and tipo = 'P2' and torre = '0/1' and data = '2026-12-06') = 'AB', 'registros: partes AB';
+  assert (select partes from rpsq_registros where semana = '2026-11-23' and tipo = 'P2' and torre = '7/1A' and data = '2026-12-06') is null, 'registros: torre inteira sem partes';
+  assert (select partes from rpsq_registros where semana = '2026-11-23' and tipo = 'P2' and torre = '0/2' and data = '2026-12-06') = 'D', 'registros: partes D';
+end $$;
+select torre, partes, data from rpsq_registros where semana = '2026-11-23' and tipo = 'P2' and data = '2026-12-06' order by torre;
+reset role;
+
 \echo 'TODOS OS TESTES DO BANCO PASSARAM'

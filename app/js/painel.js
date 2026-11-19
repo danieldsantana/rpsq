@@ -17,6 +17,14 @@ var Painel = (function () {
     if (!nv) return null;
     return { c: E.canteiro, a: App.ativ(nv.aid), tipo: nv.tipo, tp: App.tipo(nv.tipo), col: s.c, dia: s.c - 1 };
   }
+  // Partes das fundações (atividade com partes 'pes' ou 'estais'): as letras marcadas valem para a
+  // próxima torre ou intervalo adicionado, em qualquer célula, até a pessoa mudar. Todas = torre inteira.
+  var marcadas = Regras.PARTES;
+  function porPartes(a) { return !App.ehKm(a) && (a.partes === 'pes' || a.partes === 'estais'); }
+  function soEstaiadas(a) { return a.partes === 'estais' || a.partes === 'mastro'; }
+  function nomePartes(a) { return a.partes === 'estais' ? 'Estais' : 'Pés (ou estais)'; }
+  function mesmaTorre(item, torre) { return Regras.separa(item).torre === torre; }
+
   function exemploTorre() {
     var t = App.E.trecho.torres;
     return t.length ? t[Math.floor(t.length / 2)][0] : '';
@@ -50,9 +58,16 @@ var Painel = (function () {
     }
 
     var x = App.cel(s.c, s.a.id, s.tipo, s.dia), r = App.regras(), km = App.ehKm(s.a), ex = exemploTorre();
+    var pp = porPartes(s.a);
+    if (ed && pp) {
+      h += '<div class="sec"><b>' + nomePartes(s.a) + ' a lançar</b><div class="lin partes">' + Regras.PARTES.split('').map(function (l) {
+        return '<label class="ck"><input type="checkbox" data-pt="' + l + '"' + (marcadas.indexOf(l) >= 0 ? ' checked' : '') + '> ' + l + '</label>';
+      }).join('') + '</div><p class="dica">Todos marcados = torre inteira. Adicionar de novo uma torre troca as partes dela.</p></div>';
+    }
     if (ed) {
       h += '<div class="sec"><label for="p-t"><b>Adicionar torre individual</b></label><div class="lin"><input type="text" id="p-t" list="dl-torres" autocomplete="off" placeholder="' + esc(ex) + '">' +
-        '<button class="rb" id="p-add-t">Adicionar</button></div>' + (km ? '<p class="dica">Em KM, uma torre sozinha conta o vão à frente dela.</p>' : '') + '</div>';
+        '<button class="rb" id="p-add-t">Adicionar</button></div>' + (km ? '<p class="dica">Em KM, uma torre sozinha conta o vão à frente dela.</p>' : '') +
+        (soEstaiadas(s.a) ? '<p class="dica">Esta atividade é só de torres estaiadas.</p>' : '') + '</div>';
       h += '<div class="sec"><b>Adicionar um intervalo de torres</b><div class="lin"><label for="p-de">De</label><input type="text" id="p-de" list="dl-torres" autocomplete="off" placeholder="' + esc(ex) + '">' +
         '<label for="p-ate">até</label><input type="text" id="p-ate" list="dl-torres" autocomplete="off"><button class="rb" id="p-add-i">Adicionar</button></div>' +
         (km ? '<p class="dica">Em KM, o intervalo inclui as duas torres; cada uma conta o vão à frente dela.</p>' : '') + '</div>';
@@ -63,10 +78,14 @@ var Painel = (function () {
           return '<span class="chip">' + esc(sq.texto) + (ed ? '<button data-rmr="' + esc(sq.codigos.join(',')) + '" aria-label="Remover o intervalo">×</button>' : '') + '</span>';
         }).join('')
       : r.ordenar(x.torres).map(function (t) {
-          return '<span class="chip">' + esc(t) + (ed ? '<button data-rmt="' + esc(t) + '" aria-label="Remover a torre ' + esc(t) + '">×</button>' : '') + '</span>';
+          var torre = Regras.separa(t).torre, texto = r.formatar([t], s.a.unidade);
+          // nas atividades por partes, clicar na torre traz ela e as partes para o painel, para trocar
+          var nome = ed && pp ? '<button class="edt" data-edt="' + esc(t) + '" title="Trocar as partes desta torre">' + esc(texto) + '</button>' : esc(texto);
+          return '<span class="chip">' + nome + (ed ? '<button data-rmt="' + esc(torre) + '" aria-label="Remover a torre ' + esc(torre) + '">×</button>' : '') + '</span>';
         }).join('');
-    var n = x.torres.length;
+    var n = r.ordenar(x.torres).length, completas = r.total([x.torres], 'TORRE');
     var q = km ? (n ? Regras.formatarTotal(r.total([x.torres], 'KM'), 'KM') + ' km' : '') : (n ? n + (n === 1 ? ' torre' : ' torres') : '');
+    if (!km && n && completas < n) q += ', ' + (completas === 1 ? '1 completa' : completas + ' completas');
     h += '<div class="sec"><b>' + (km ? 'Torres e intervalos adicionados' : 'Torres adicionadas') + (q ? ' (' + q + ')' : '') + '</b>' +
       (chips ? '<div class="chips">' + chips + '</div>' : '<p class="dica">Nada lançado nesta célula.</p>') +
       '<span class="dica">Como vai aparecer na célula:</span><div class="como">' + esc(r.formatar(x.torres, s.a.unidade)) + '</div>' +
@@ -123,6 +142,14 @@ var Painel = (function () {
     else App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { torres: [] });
     redesenhaTudo();
   }
+  // adiciona as torres; nas atividades por partes, com as partes marcadas, trocando as que a torre já tinha
+  function adiciona(s, x, novas) {
+    if (!porPartes(s.a)) { mudaTorres(x.torres.concat(novas)); return true; }
+    if (!marcadas) return erro('Marque pelo menos uma parte (A, B, C ou D).');
+    var ficam = x.torres.filter(function (t) { return !novas.some(function (n) { return mesmaTorre(t, n); }); });
+    mudaTorres(ficam.concat(novas.map(function (t) { return Regras.junta(t, marcadas); })));
+    return true;
+  }
   function mudaTorres(lista) {
     var s = sel();
     App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { torres: App.regras().ordenar(lista) });
@@ -139,18 +166,33 @@ var Painel = (function () {
         T = r.lerTorre($('p-t').value);
         if (!T) return erro('Digite a torre no formato quilômetro/sequência, por exemplo ' + exemploTorre() + '.');
         if (!r.existe(T)) return erro('A torre ' + T + ' não existe no trecho ' + App.E.trecho.id + '.');
-        mudaTorres(x.torres.concat([T]));
-        return true;
+        if (soEstaiadas(s.a) && r.familia(T) !== 'E') return erro('A torre ' + T + ' é autoportante: esta atividade é só de torres estaiadas.');
+        return adiciona(s, x, [T]);
       }
       if (b.id === 'p-add-i') {
         var A = r.lerTorre($('p-de').value), B = r.lerTorre($('p-ate').value);
         if (!A || !B) return erro('Preencha as duas torres do intervalo, por exemplo ' + exemploTorre() + '.');
         var ruins = [A, B].filter(function (c) { return !r.existe(c); });
         if (ruins.length) return erro(ruins.length === 1 ? 'A torre ' + ruins[0] + ' não existe no trecho ' + App.E.trecho.id + '.' : 'As torres ' + ruins.join(' e ') + ' não existem no trecho ' + App.E.trecho.id + '.');
-        mudaTorres(x.torres.concat(r.intervalo(A, B, s.a.unidade)));
+        var lista = r.intervalo(A, B, s.a.unidade), fora = [];
+        if (soEstaiadas(s.a)) {
+          fora = lista.filter(function (t) { return r.familia(t) !== 'E'; });
+          lista = lista.filter(function (t) { return r.familia(t) === 'E'; });
+          if (!lista.length) return erro('Esta atividade é só de torres estaiadas, e o intervalo só tem autoportantes.');
+        }
+        adiciona(s, x, lista);
+        if (fora.length) App.toast('Ficaram de fora as autoportantes: ' + fora.join(', ') + '.');
         return true;
       }
-      if (d.rmt !== undefined) { mudaTorres(x.torres.filter(function (t) { return t !== d.rmt; })); return true; }
+      if (d.rmt !== undefined) { mudaTorres(x.torres.filter(function (t) { return !mesmaTorre(t, d.rmt); })); return true; }
+      if (d.edt) {
+        var e = Regras.separa(d.edt);
+        marcadas = e.partes || Regras.PARTES;
+        desenhar();
+        $('p-t').value = e.torre;
+        $('p-t').focus();
+        return true;
+      }
       if (d.rmr) { var tira = d.rmr.split(','); mudaTorres(x.torres.filter(function (t) { return tira.indexOf(t) < 0; })); return true; }
       if (b.id === 'p-limpa') { mudaTorres([]); return true; }
       if (b.id === 'p-cm-ok') { redesenhaTudo(); App.toast('Comentário salvo.'); return true; }
@@ -273,6 +315,10 @@ var Painel = (function () {
     else if (t.id === 'ad-t') { A.t = t.value; A.a = ''; desenharAdd(); var n = $('ad-a') || $('ad-n'); if (n) n.focus(); }
     else if (t.id === 'ad-a') { A.a = t.value; }
     else if (t.id === 'ad-av') { A.avulsa = t.checked; A.a = ''; desenharAdd(); }
+    else if (t.dataset && t.dataset.pt) {
+      marcadas = [].slice.call(document.querySelectorAll('#pane input[data-pt]'))
+        .filter(function (c) { return c.checked; }).map(function (c) { return c.dataset.pt; }).join('');
+    }
   });
   document.addEventListener('keydown', function (ev) {
     var t = ev.target, k = ev.key;

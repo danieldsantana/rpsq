@@ -174,16 +174,12 @@ var Planilha = (function () {
         if (!blocos.length) return;
         var nRows = blocos.reduce(function (s, b) { return s + 1 + b.linhas.length; }, 0), primeiro = true;
         blocos.forEach(function (b) {
-          var dias = [], todas = [], donos = [];
+          var dias = [], todas = [];
           for (var i = 0; i < 7; i++) {
             var listas = b.linhas.map(function (l) { return l.cels[i].torres; });
             todas = todas.concat(listas);
             var u = r.uniao(listas);
             dias.push(u.length ? r.formatar(u, a.unidade) : (i === 6 ? 'DSR' : ''));
-            // quem lançou cada torre neste dia (para o aviso de conflito)
-            var d = {};
-            b.linhas.forEach(function (l) { l.cels[i].torres.forEach(function (t) { (d[t] = d[t] || []).push(l.ct.nome); }); });
-            donos.push(d);
           }
           var encs = [];
           b.linhas.forEach(function (l) { var e = App.encarregado(l.ct.id, a.id, b.tp.k); if (e && encs.indexOf(e) < 0) encs.push(e); });
@@ -200,10 +196,14 @@ var Planilha = (function () {
             corpo += tr('T' + a.id + b.tp.k + 'c' + l.ct.id) + '<td>' + esc(l.ct.nome.toUpperCase()) + '</td>' +
               (falta ? '<td class="c ro falta"><span class="obr">obrigatório</span></td>' : '<td>' + esc(enc) + '</td>');
             l.cels.forEach(function (x, i) {
-              var dicas = [];
-              x.torres.forEach(function (t) {
-                var outros = donos[i][t].filter(function (n) { return n !== l.ct.nome; });
-                if (outros.length) dicas.push('Conferir: a torre ' + t + ' também está lançada por ' + outros.join(', '));
+              // aviso de conflito: a mesma torre (ou a mesma parte dela) lançada por outro canteiro no mesmo dia
+              var dicas = [], quem = {};
+              b.linhas.forEach(function (o) {
+                if (o === l) return;
+                r.emComum([x.torres, o.cels[i].torres]).forEach(function (t) { (quem[t] = quem[t] || []).push(o.ct.nome); });
+              });
+              r.ordenar(Object.keys(quem)).forEach(function (t) {
+                dicas.push('Conferir: a torre ' + t + ' também está lançada por ' + quem[t].join(', '));
               });
               var conflito = dicas.length > 0;
               if (x.comentario) dicas.push('Comentário: ' + x.comentario);

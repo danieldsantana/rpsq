@@ -95,6 +95,51 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('limpar célula', torres('Norte', '1.2.1', 'E', 0).length === 0);
   });
 
+  // 2.1.1 é lançada por pés (partes 'pes'); 2.1.3 é só de estaiadas ('mastro'). No X1, 3/2 é autoportante.
+  await parte('partes das fundações', function () {
+    var td = celula('2.1.1', 'P2', 4), caixas = function () { return qa('#pane input[data-pt]'); };
+    confere('quatro caixas, todas marcadas', caixas().length === 4 && caixas().every(function (c) { return c.checked; }));
+    muda(caixas()[2], false); muda(caixas()[3], false);
+    $('p-t').value = '3/2'; clica('#p-add-t');
+    $('p-t').value = '5/1'; clica('#p-add-t');
+    confere('torres entram só com os pés marcados', igual(torres('Norte', '2.1.1', 'P2', 3), ['3/2:AB', '5/1:AB']), torres('Norte', '2.1.1', 'P2', 3));
+    confere('célula mostra pés na autoportante e estais na estaiada', td().textContent === '3/2 (Pés A e B), 5/1 (Estais A e B)', td().textContent);
+    confere('as caixas continuam como a pessoa deixou', caixas().map(function (c) { return c.checked; }).join() === 'true,true,false,false');
+    confere('painel conta as completas', /2 torres, 0 completas/.test(q('#pane').textContent), q('#pane').textContent.slice(0, 300));
+    clica(q('#pane [data-edt="3/2:AB"]'));
+    confere('clicar na torre traz ela e os pés para o painel', $('p-t').value === '3/2' && caixas().map(function (c) { return c.checked; }).join() === 'true,true,false,false');
+    muda(caixas()[3], true); clica('#p-add-t');
+    confere('adicionar de novo troca os pés da torre', igual(torres('Norte', '2.1.1', 'P2', 3), ['3/2:ABD', '5/1:AB']), torres('Norte', '2.1.1', 'P2', 3));
+    muda(caixas()[2], true);
+    $('p-de').value = '6/1'; $('p-ate').value = '6/2'; clica('#p-add-i');
+    confere('com tudo marcado o intervalo entra inteiro', td().textContent === '3/2 (Pés A, B e D), 5/1 (Estais A e B), 6/1, 6/2', td().textContent);
+    caixas().forEach(function (c) { muda(c, false); });
+    $('p-t').value = '7/1'; clica('#p-add-t');
+    confere('sem nenhuma marcada, pede para marcar', /Marque pelo menos/.test($('p-erro').textContent), $('p-erro').textContent);
+    caixas().forEach(function (c) { muda(c, true); });
+    // consolidado: pés diferentes da mesma torre não são conflito; o mesmo pé é
+    var aid = ativ('X1', '2.1.1').id;
+    App.gravarCelula(cantId('Sul'), aid, 'P2', 3, { torres: ['3/2:D', '5/1:CD'] });
+    App.gravarEncarregado(cantId('Sul'), aid, 'P2', 'ENCARREGADO S');
+    muda('#f-cant', 'todos');
+    var w = qa('td.c.w').filter(function (c) { return /\|P2\|3$/.test(c.dataset.sk); });
+    confere('conflito só no pé repetido', w.length === 2 && w.every(function (c) { return /torre 3\/2/.test(c.title) && !/torre 5\/1/.test(c.title); }), w.map(function (c) { return c.title; }));
+    var dia = qa('#paper td').map(function (c) { return c.textContent; }).filter(function (t) { return /^3\/2 \(/.test(t); });
+    confere('união junta os pés dos canteiros', dia.indexOf('3/2 (Pés A, B e D), 5/1, 6/1, 6/2') >= 0, dia);
+    App.gravarCelula(cantId('Sul'), aid, 'P2', 3, { torres: ['5/1:CD'] });
+    muda('#f-cant', String(cantId('Norte')));
+    // atividade só de estaiadas
+    clica('#b-add'); muda('#ad-g', '2'); muda('#ad-t', '2.1'); muda('#ad-a', String(ativ('X1', '2.1.3').id)); clica('#ad-ok'); clica('#ad-x');
+    celula('2.1.3', 'P1', 1);
+    confere('mastro: sem caixas de pés', caixas().length === 0 && /só de torres estaiadas/.test(q('#pane').textContent));
+    $('p-t').value = '3/2'; clica('#p-add-t');
+    confere('mastro: autoportante recusada', /3\/2 é autoportante/.test($('p-erro').textContent) && !torres('Norte', '2.1.3', 'P1', 0).length, $('p-erro').textContent);
+    $('p-de').value = '3/1'; $('p-ate').value = '4/1'; clica('#p-add-i');
+    confere('mastro: intervalo deixa as autoportantes de fora', igual(torres('Norte', '2.1.3', 'P1', 0), ['3/1', '4/1']), torres('Norte', '2.1.3', 'P1', 0));
+    clica('#p-limpa');
+    clica(q('[data-hide="' + ativ('X1', '2.1.3').id + '"]'));
+  });
+
   await parte('comentário', function () {
     var td = celula('3.1.2', 'P1', 3);
     $('cm').value = 'comentário de teste'; clica('#p-cm-ok');

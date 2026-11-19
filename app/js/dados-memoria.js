@@ -21,7 +21,8 @@
 //                                    trechos: [ { id, sigla, nomeLt,
 //                                      canteiros:  [ { id, nome } ],
 //                                      torres:     [ [codigo, familia, tipo, vaoM] ],
-//                                      atividades: [ { id, codigo, nome, unidade, topico, nomeTopico, avulsa } ] } ] }
+//                                      atividades: [ { id, codigo, nome, unidade, topico, nomeTopico, avulsa, partes } ] } ] }
+//                                      partes: null, 'pes', 'estais' ou 'mastro' (fundações; ver regras.js)
 //   criarAvulsa(trechoId, topico, nome, unidade)  -> a atividade criada (código = próximo livre do tópico),
 //                                  no formato de carregarBase e com trechoId
 //
@@ -107,7 +108,7 @@ var DadosMemoria = (function () {
           torres: copia(t.torres),
           atividades: t.atividades.map(function (a) {
             return { id: ++idAtiv, codigo: a.codigo, nome: a.nome, unidade: a.unidade, topico: a.topico,
-                     nomeTopico: a.nomeTopico, avulsa: false };
+                     nomeTopico: a.nomeTopico, avulsa: false, partes: a.partes || null };
           })
         };
       })
@@ -216,7 +217,7 @@ var DadosMemoria = (function () {
     var maxId = 0;
     M.base.trechos.forEach(function (x) { x.atividades.forEach(function (a) { maxId = Math.max(maxId, a.id); }); });
     var nova = { id: maxId + 1, trechoId: trechoId, codigo: topico + '.' + (maior + 1), nome: nome.trim().toUpperCase(),
-                 unidade: unidade.trim().toUpperCase(), topico: topico, nomeTopico: doTopico[0].nomeTopico, avulsa: true };
+                 unidade: unidade.trim().toUpperCase(), topico: topico, nomeTopico: doTopico[0].nomeTopico, avulsa: true, partes: null };
     t.atividades.push(nova);
     return nova;
   }

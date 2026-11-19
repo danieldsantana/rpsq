@@ -120,6 +120,45 @@ bloco('consolidado', function () {
   confere('repetida na mesma lista não é conflito', r.emComum([['5/1', '5/1']]).length === 0);
 });
 
+// Partes das fundações (19/11/2026). No X1, 3/2, 10/2, 14/2... são autoportantes; as demais, estaiadas.
+bloco('partes', function () {
+  confere('junta: partes em ordem', Regras.junta('5/1', 'ca') === '5/1:AC', Regras.junta('5/1', 'ca'));
+  confere('junta: todas as partes = torre inteira', Regras.junta('5/1', 'DCBA') === '5/1' && Regras.junta('5/1', null) === '5/1');
+  confere('separa', igual(Regras.separa('5/1:AB'), { torre: '5/1', partes: 'AB' }) && Regras.separa('5/1').partes === null);
+  confere('existe aceita torre com partes', r.existe('5/1:AB') && !r.existe('99/9:A'));
+  confere('família', r.familia('3/2') === 'A' && r.familia('5/1') === 'E' && r.familia('99/9') === null);
+  confere('partesDe', r.partesDe(['5/1:AB', '6/1'], '5/1') === 'AB' && r.partesDe(['5/1:AB', '6/1'], '6/1') === 'ABCD' && r.partesDe(['6/1'], '5/1') === '');
+  confere('autoportante: pés', r.formatar(['3/2:AB'], 'TORRE') === '3/2 (Pés A e B)', r.formatar(['3/2:AB'], 'TORRE'));
+  confere('autoportante: um pé', r.formatar(['3/2:A'], 'TORRE') === '3/2 (Pé A)', r.formatar(['3/2:A'], 'TORRE'));
+  confere('estaiada: estais', r.formatar(['5/1:ABC'], 'TORRE') === '5/1 (Estais A, B e C)', r.formatar(['5/1:ABC'], 'TORRE'));
+  confere('estaiada: um estai', r.formatar(['5/1:D'], 'TORRE') === '5/1 (Estai D)', r.formatar(['5/1:D'], 'TORRE'));
+  var mix = ['5/1', '5/2:A', '6/1', '6/2', '7/1A'];
+  confere('torre com partes quebra a sequência', r.formatar(mix, 'TORRE') === '5/1, 5/2 (Estai A), 6/1 a 7/1A', r.formatar(mix, 'TORRE'));
+  confere('ordenar junta as partes da mesma torre', igual(r.ordenar(['5/1:B', '5/1:A']), ['5/1:AB']) && igual(r.ordenar(['5/1:AB', '5/1:CD']), ['5/1']) &&
+    igual(r.ordenar(['5/1', '5/1:A']), ['5/1']), r.ordenar(['5/1:B', '5/1:A']));
+  confere('total conta só torre completa', r.total([['5/1:AB'], ['5/1:CD'], ['5/2:A'], ['6/1']], 'TORRE') === 2 && r.total([['5/1:AB']], 'TORRE') === 0);
+  confere('lê o texto com partes', igual(r.ler('5/1, 5/2 (Estai A), 6/1 a 7/1A', 'TORRE').codigos, mix), r.ler('5/1, 5/2 (Estai A), 6/1 a 7/1A', 'TORRE'));
+  confere('lê pés em minúsculas', igual(r.ler('3/2 (pé a), 10/2 (Pés B e D)', 'TORRE').codigos, ['3/2:A', '10/2:BD']), r.ler('3/2 (pé a), 10/2 (Pés B e D)', 'TORRE'));
+  var x = r.ler('99/9 (Pé A)', 'TORRE'), y = r.ler('5/1 (Estais X)', 'TORRE');
+  confere('torre inexistente com partes vai para invalidas', igual(x.invalidas, ['99/9']), x);
+  confere('parte inexistente é recusada', y.resto !== '' && !y.codigos.length, y);
+  confere('pés diferentes não são conflito', r.emComum([['5/1:AB'], ['5/1:CD']]).length === 0);
+  confere('mesmo pé é conflito', igual(r.emComum([['5/1:AB'], ['5/1:BC']]), ['5/1']) && igual(r.emComum([['5/1'], ['5/1:D']]), ['5/1']));
+  var semente = 3, falhas = [], L = 'ABCD';
+  function sorteio() { semente = (semente * 16807) % 2147483647; return semente / 2147483647; }
+  for (var k = 0; k < 300; k++) {
+    var lista = [];
+    COD.forEach(function (c) {
+      if (sorteio() >= 0.3) return;
+      var p = L.split('').filter(function () { return sorteio() < 0.6; }).join('');
+      lista.push(sorteio() < 0.5 || !p ? c : Regras.junta(c, p));
+    });
+    var volta = r.ler(r.formatar(lista, 'TORRE'), 'TORRE');
+    if (!igual(volta.codigos, lista) || volta.invalidas.length || volta.resto) falhas.push(lista.join(' '));
+  }
+  confere('ida e volta com partes (300 casos)', falhas.length === 0, falhas.slice(0, 2));
+});
+
 bloco('formato do total', function () {
   confere('KM com duas casas e vírgula', Regras.formatarTotal(3.4567, 'KM') === '3,46', Regras.formatarTotal(3.4567, 'KM'));
   confere('TORRE como número inteiro', Regras.formatarTotal(12, 'TORRE') === '12');

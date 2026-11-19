@@ -128,3 +128,7 @@ body.sem-login .entrada{display:grid;gap:6px;margin:60px auto;background:var(--p
 table.usuarios td.in select{width:100%;border:0;background:transparent;text-align:center}
 .erro-adm{color:var(--bad)}
 .erro-adm:empty{display:none}
+.pane .partes{gap:12px}
+.chip button.edt{color:var(--ink);font-size:13px;padding:0;cursor:pointer}
+.chip button.edt:hover{color:var(--ink);text-decoration:underline}
+.pane .ck{display:inline-flex;gap:4px;align-items:center}

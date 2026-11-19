@@ -68,7 +68,8 @@ var DadosSupabase = (function () {
   }
   function atividade(x) {
     return { id: x.id, trechoId: x.trecho_id, codigo: x.codigo, nome: x.nome, unidade: x.unidade, topico: x.topico,
-             nomeTopico: x.nome_topico, avulsa: !!x.avulsa, ativa: x.ativa !== false };
+             nomeTopico: x.nome_topico, avulsa: !!x.avulsa, ativa: x.ativa !== false,
+             partes: x.partes || null }; // partes: coluna do script 006; antes dele, fica null
   }
   function semana(x) { return { inicio: x.inicio, revisao: x.revisao || 0, elaboradoPor: x.elaborado_por || '' }; }
   function semCampoSemana(x) { delete x.semana; return x; }
@@ -112,7 +113,7 @@ var DadosSupabase = (function () {
       c.from('rpsq_trechos').select('id, sigla, nome_lt, ordem').order('ordem').then(dados),
       c.from('rpsq_canteiros').select('id, trecho_id, nome, ordem').order('trecho_id').order('ordem').then(dados),
       lerTudo(function () { return c.from('rpsq_torres').select('trecho_id, ordem, codigo, familia, tipo, vao_m').order('trecho_id').order('ordem'); }),
-      lerTudo(function () { return c.from('rpsq_atividades').select('id, trecho_id, codigo, nome, unidade, topico, nome_topico, avulsa, ativa').order('id'); })
+      lerTudo(function () { return c.from('rpsq_atividades').select('*').order('id'); })
     ]).then(function (r) {
       var cfg = {};
       r[0].forEach(function (x) { cfg[x.chave] = x.valor; });
