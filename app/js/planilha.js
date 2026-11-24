@@ -282,6 +282,21 @@ var Planilha = (function () {
     }
     abas();
     aplicaSel();
+    marcaCopia();
+  }
+  // borda tracejada na célula copiada (Ctrl+C), como no Excel; some com Esc ou com uma nova cópia
+  function marcaCopia() {
+    var E = App.E, k = E.copiada, td = null;
+    document.querySelectorAll('td.cop').forEach(function (t) { t.classList.remove('cop'); });
+    if (!k || !E.semana || k.semana !== E.semana.inicio) return;
+    if (E.canteiro === App.TODOS) {
+      if (k.col > 0) td = document.querySelector('td[data-sk="' + k.c + '|' + k.aid + '|' + k.tipo + '|' + (k.col - 1) + '"]');
+    } else if (E.canteiro === k.c) {
+      var r = -1;
+      E.nav.forEach(function (n, i) { if (r < 0 && n.aid === k.aid && n.tipo === k.tipo) r = i; });
+      if (r >= 0) td = document.querySelector('td[data-r="' + r + '"][data-c="' + k.col + '"]');
+    }
+    if (td) td.classList.add('cop');
   }
   function redesenhar() {
     var area = $('area'), x = area.scrollLeft, y = area.scrollTop;
@@ -425,6 +440,6 @@ var Planilha = (function () {
 
   return {
     desenhar: desenhar, redesenhar: redesenhar, seleciona: seleciona, move: move, selTd: selTd,
-    clique: clique, atualizaControle: atualizaControle, linhasDe: linhasDe
+    clique: clique, atualizaControle: atualizaControle, linhasDe: linhasDe, marcaCopia: marcaCopia
   };
 })();

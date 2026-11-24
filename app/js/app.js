@@ -29,6 +29,7 @@ var App = (function () {
     cel: {}, enc: {}, vis: {}, ctrl: {},
     trecho: null, canteiro: null,      // canteiro: id do canteiro ou TODOS
     sel: null, ssel: null, nav: [],    // seleção na visão do canteiro ({r, c}) e no consolidado (chave)
+    copiada: null,                     // célula copiada com Ctrl+C, destacada como no Excel: { semana, c, aid, tipo, col }
     addAberto: false, add: { g: '', t: '', a: '', avulsa: false },
     tela: 'planilha'                   // 'planilha' ou 'usuarios' (administrador)
   };
@@ -394,6 +395,7 @@ var App = (function () {
     if (t.getAttribute && t.getAttribute('data-ctl') && k === 'Enter') { t.blur(); return; }
     if (t.id === 'f-rev' && k === 'Enter') { t.blur(); return; }
     if (t.matches && t.matches('input,textarea,select,button')) return;
+    if (k === 'Escape' && E.copiada) { E.copiada = null; Planilha.marcaCopia(); return; }
     if (E.canteiro === TODOS || !E.sel) return;
     if (k === 'ArrowDown') { ev.preventDefault(); Planilha.move(1, 0); }
     else if (k === 'ArrowUp') { ev.preventDefault(); Planilha.move(-1, 0); }

@@ -138,3 +138,7 @@ table.usuarios td.in select{width:100%;border:0;background:transparent;text-alig
 .pane ol.hist li:last-child{border-bottom:0}
 .pane .h-q{color:var(--muted);font-size:12px}
 .pane .h-o{font-size:12px;font-weight:700}
+/* célula copiada (Ctrl+C): borda tracejada andando, como no Excel */
+table.sheet td.c.cop{background-image:linear-gradient(90deg,var(--xl) 50%,transparent 50%),linear-gradient(90deg,var(--xl) 50%,transparent 50%),linear-gradient(0deg,var(--xl) 50%,transparent 50%),linear-gradient(0deg,var(--xl) 50%,transparent 50%);background-repeat:repeat-x,repeat-x,repeat-y,repeat-y;background-size:8px 2px,8px 2px,2px 8px,2px 8px;background-position:0 0,0 100%,0 0,100% 0;animation:rpsq-formigas .6s linear infinite}
+@keyframes rpsq-formigas{to{background-position:8px 0,-8px 100%,0 -8px,100% 8px}}
+@media (prefers-reduced-motion:reduce){table.sheet td.c.cop{animation:none}}

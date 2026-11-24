@@ -308,11 +308,15 @@ document.getElementById('app').addEventListener('load', async function () {
       D.body.dispatchEvent(new W.ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
     }
     function aviso() { return $('toast').textContent; }
-    celula('2.1.1', 'P1', 1);
+    var origem = celula('2.1.1', 'P1', 1);
     confere('Ctrl+C copia o texto da célula', copia() === '2/2 a 3/2', aviso());
+    confere('a célula copiada fica destacada', origem().classList.contains('cop') && qa('td.cop').length === 1);
     var td = celula('2.1.1', 'P1', 3);
     cola('2/2 a 3/2');
+    confere('o destaque continua depois de colar', origem().classList.contains('cop'));
     confere('Ctrl+V cola as mesmas torres', igual(torres('Norte', '2.1.1', 'P1', 2), ['2/2', '3/1', '3/2']) && td().textContent === '2/2 a 3/2', torres('Norte', '2.1.1', 'P1', 2));
+    tecla('Escape');
+    confere('Esc tira o destaque', qa('td.cop').length === 0);
     cola('5/1 a 5/2\t6/1\r\n');
     confere('texto de fora (do Excel) substitui as torres', igual(torres('Norte', '2.1.1', 'P1', 2), ['5/1', '5/2', '6/1']), torres('Norte', '2.1.1', 'P1', 2));
     cola('chuva');
@@ -334,6 +338,7 @@ document.getElementById('app').addEventListener('load', async function () {
     muda('#f-cant', 'todos');
     mouse(q('td.c[data-sk="' + cantId('Sul') + '|' + ativ('X1', '2.1.1').id + '|P1|0"]'));
     confere('no consolidado também copia', copia() === '3/1, 3/2, 10/1', aviso());
+    confere('no consolidado também destaca', qa('td.cop').length === 1 && q('td.cop').dataset.sk === cantId('Sul') + '|' + ativ('X1', '2.1.1').id + '|P1|0');
     muda('#f-cant', String(cantId('Norte')));
     App.E.usuario.papel = 'consulta'; Dados.definirPapel('consulta'); App.render();
     celula('2.1.1', 'P1', 3); cola('5/1');

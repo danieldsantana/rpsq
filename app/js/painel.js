@@ -324,12 +324,13 @@ var Painel = (function () {
     if (E.canteiro === App.TODOS) {
       if (!E.ssel) return null;
       var p = E.ssel.split('|'), a = App.ativ(+p[1]);
-      return { a: a, torres: App.cel(+p[0], a.id, p[2], +p[3]).torres };
+      return { a: a, torres: App.cel(+p[0], a.id, p[2], +p[3]).torres, onde: { c: +p[0], aid: a.id, tipo: p[2], col: +p[3] + 1 } };
     }
     var s = sel();
     if (!s) return null;
-    if (s.col === 0) return { a: s.a, nome: App.encarregado(s.c, s.a.id, s.tipo) };
-    return { a: s.a, torres: App.cel(s.c, s.a.id, s.tipo, s.dia).torres };
+    var onde = { c: s.c, aid: s.a.id, tipo: s.tipo, col: s.col };
+    if (s.col === 0) return { a: s.a, nome: App.encarregado(s.c, s.a.id, s.tipo), onde: onde };
+    return { a: s.a, torres: App.cel(s.c, s.a.id, s.tipo, s.dia).torres, onde: onde };
   }
   function copiar(ev) {
     var x = celulaParaCopiar();
@@ -338,6 +339,9 @@ var Painel = (function () {
     ev.clipboardData.setData('text/plain', texto);
     ev.preventDefault();
     copiado = x.nome !== undefined ? null : { trecho: App.E.trecho.id, texto: texto, torres: x.torres.slice() };
+    x.onde.semana = App.E.semana.inicio;
+    App.E.copiada = x.onde;
+    Planilha.marcaCopia();
     App.toast(texto ? 'Copiado: ' + texto : 'Copiada uma célula vazia.');
   }
   function colar(ev) {
