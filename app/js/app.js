@@ -254,7 +254,7 @@ var App = (function () {
       else {
         var p = E.ssel.split('|'), a = ativ(+p[1]), tp = tipo(p[2]), d = +p[3];
         nb.textContent = a.codigo + ' · ' + cant(+p[0]).nome + ' · ' + tp.tar + ' · ' + DIAS[d] + ' ' + ddmm(data(tp.k, d));
-        fx.value = regras().formatar(cel(+p[0], a.id, tp.k, d).torres, a.unidade);
+        fx.value = Regras.celTexto(regras(), a, cel(+p[0], a.id, tp.k, d).torres);
       }
       Painel.desenhar();
       return;
@@ -269,7 +269,7 @@ var App = (function () {
       return;
     }
     nb.textContent = at.codigo + ' · ' + t.tar + ' · ' + (s.c === 0 ? 'Encarregado' : DIAS[s.c - 1] + ' ' + ddmm(data(t.k, s.c - 1)));
-    fx.value = s.c === 0 ? encarregado(E.canteiro, at.id, t.k) : regras().formatar(cel(E.canteiro, at.id, t.k, s.c - 1).torres, at.unidade);
+    fx.value = s.c === 0 ? encarregado(E.canteiro, at.id, t.k) : Regras.celTexto(regras(), at, cel(E.canteiro, at.id, t.k, s.c - 1).torres);
     Painel.desenhar();
   }
   function render() {

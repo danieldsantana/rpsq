@@ -69,7 +69,7 @@ var DadosSupabase = (function () {
   function atividade(x) {
     return { id: x.id, trechoId: x.trecho_id, codigo: x.codigo, nome: x.nome, unidade: x.unidade, topico: x.topico,
              nomeTopico: x.nome_topico, avulsa: !!x.avulsa, ativa: x.ativa !== false,
-             partes: x.partes || null }; // partes: coluna do script 006; antes dele, fica null
+             partes: x.partes || null, texto: !!x.texto }; // partes: script 006; texto: script 011 (antes, null/false)
   }
   function semana(x) { return { inicio: x.inicio, revisao: x.revisao || 0, elaboradoPor: x.elaborado_por || '' }; }
   function semCampoSemana(x) { delete x.semana; return x; }

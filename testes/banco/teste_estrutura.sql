@@ -230,4 +230,24 @@ select teste.falha('select * from rpsq_historico') as anon_historico;
 reset role;
 select campo, tipo, dia, antes, depois, por_nome from rpsq_historico where semana = '2026-11-23' order by id;
 
+\echo '===== 13. Atividades de texto (script 011)'
+insert into rpsq_atividades (trecho_id, codigo, nome, unidade, topico, nome_topico) values
+  ('X1', '1.4.1', 'CANTEIRO EXEMPLO', 'UND', '1.4', 'SERVICOS PRELIMINARES - CONSTRUCAO DE CANTEIRO');
+\ir ../../banco/011_atividades_texto.sql
+do $$ begin
+  assert (select texto from rpsq_atividades where codigo = '1.4.1'), '1.4.1 deveria ser de texto';
+  assert not (select texto from rpsq_atividades where codigo = '2.1.1'), '2.1.1 nao e de texto';
+end $$;
+set role authenticated; set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
+insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres)
+select '2026-11-23', 1, id, 'P1', 0, '{"Fundação do galpão"}' from rpsq_atividades where codigo = '1.4.1';
+select teste.falha($$insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres)
+  select '2026-11-23', 1, id, 'P1', 1, '{"a","b"}' from rpsq_atividades where codigo = '1.4.1'$$) as texto_com_dois_itens;
+select teste.falha($$insert into rpsq_celulas (semana, canteiro_id, atividade_id, tipo, dia, torres) values ('2026-11-23', 1, 1, 'P1', 4, '{"texto livre"}')$$) as texto_em_atividade_de_torre;
+do $$ begin
+  assert not exists (select 1 from rpsq_registros where atividade_codigo = '1.4.1'), 'registros nao deveria ter texto';
+  assert exists (select 1 from rpsq_historico where campo = 'torres' and depois = '["Fundação do galpão"]'::jsonb), 'historico do texto';
+end $$;
+reset role;
+
 \echo 'TODOS OS TESTES DO BANCO PASSARAM'

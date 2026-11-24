@@ -34,6 +34,7 @@
 //   Regras.separa('5/1:AB')   -> { torre: '5/1', partes: 'AB' }   (partes null = torre inteira)
 //
 // Qualquer unidade que não seja 'KM' segue a regra de TORRE.
+// Atividade de texto (a.texto): use Regras.celTexto / celTotal / celUniao, que valem para todas as atividades.
 var Regras = (function () {
   // número, barra, número e, opcionalmente, uma letra no fim (existem torres como 7/1A)
   var PADRAO_TORRE = /^'?\s*(\d+)\s*\/\s*(\d+)\s*([A-Za-z]?)\s*$/;
@@ -251,5 +252,18 @@ var Regras = (function () {
     };
   }
 
-  return { criar: criar, normalizar: normalizar, formatarTotal: formatarTotal, separa: separa, junta: junta, PARTES: PARTES };
+  // Atividades de TEXTO (a.texto; ex.: construção de canteiro, pedido do usuário em 25/11/2026): a célula
+  // guarda um texto livre no lugar das torres (lista com um item), não tem total nem aviso de conflito.
+  // Estes ajudantes escolhem a regra certa pela atividade; r = Regras.criar(torres do trecho).
+  function textos(listas) {
+    var saida = [];
+    [].concat.apply([], listas || []).forEach(function (t) { t = String(t).trim(); if (t && saida.indexOf(t) < 0) saida.push(t); });
+    return saida;
+  }
+  function celTexto(r, a, lista) { return a && a.texto ? textos([lista]).join(' / ') : r.formatar(lista, a.unidade); }
+  function celTotal(r, a, listas) { return a && a.texto ? 0 : r.total(listas, a.unidade); }
+  function celUniao(r, a, listas) { return a && a.texto ? textos(listas) : r.uniao(listas); }
+
+  return { criar: criar, normalizar: normalizar, formatarTotal: formatarTotal, separa: separa, junta: junta, PARTES: PARTES,
+           celTexto: celTexto, celTotal: celTotal, celUniao: celUniao };
 })();

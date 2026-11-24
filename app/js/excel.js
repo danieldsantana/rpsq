@@ -172,11 +172,11 @@ var Exportacao = (function () {
           for (var i = 0; i < 7; i++) {
             var listas = b.linhas.map(function (l) { return l.cels[i].torres; });
             todas = todas.concat(listas);
-            var u = reg.uniao(listas), txt = u.length ? reg.formatar(u, a.unidade) : (i === 6 ? 'DSR' : '');
+            var u = Regras.celUniao(reg, a, listas), txt = u.length ? Regras.celTexto(reg, a, u) : (i === 6 ? 'DSR' : '');
             cel(ws, r, 11 + i, txt, cinza);
             textos[11 + i] = txt;
           }
-          var tot = reg.total(todas, a.unidade);
+          var tot = Regras.celTotal(reg, a, todas);
           cel(ws, r, 18, tot || '', { fundo: CINZA, b: finas('hair'), fmt: fmtTot });
           ws.getRow(r).height = altura(textos, 60);
           r++;
@@ -188,11 +188,11 @@ var Exportacao = (function () {
             tx[10] = App.encarregado(l.ct.id, a.id, b.tp.k);
             cel(ws, r, 10, tx[10], est);
             l.cels.forEach(function (x, i) {
-              var txt = reg.formatar(x.torres, a.unidade) || (i === 6 ? 'DSR' : '');
+              var txt = Regras.celTexto(reg, a, x.torres) || (i === 6 ? 'DSR' : '');
               cel(ws, r, 11 + i, txt, { b: est.b, fmt: '@' });
               tx[11 + i] = txt;
             });
-            var tc = reg.total(l.cels.map(function (x) { return x.torres; }), a.unidade);
+            var tc = Regras.celTotal(reg, a, l.cels.map(function (x) { return x.torres; }));
             cel(ws, r, 18, tc || '', { b: est.b, fmt: fmtTot });
             ws.getRow(r).height = altura(tx, 50);
             r++;
@@ -229,7 +229,7 @@ var Exportacao = (function () {
           for (var i = 0; i < 7; i++) {
             var x = App.cel(ct.id, a.id, tp.k, i);
             if (!x.comentario) continue;
-            var txt = reg.formatar(x.torres, a.unidade);
+            var txt = Regras.celTexto(reg, a, x.torres);
             its.push(a.codigo + ' ' + a.nome + ' · ' + ct.nome.toUpperCase() + ' · ' + tp.tar + ' · ' + App.DIAS[i] + ' ' +
               App.ddmm(App.data(tp.k, i)) + (txt ? ' (' + txt + ')' : '') + ': ' + x.comentario);
           }

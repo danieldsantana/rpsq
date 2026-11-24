@@ -23,6 +23,7 @@
 //                                      torres:     [ [codigo, familia, tipo, vaoM] ],
 //                                      atividades: [ { id, codigo, nome, unidade, topico, nomeTopico, avulsa, partes } ] } ] }
 //                                      partes: null, 'pes', 'estais' ou 'mastro' (fundações; ver regras.js)
+//                                      texto: true quando a célula é texto livre (ex.: canteiro), não torres
 //   criarAvulsa(trechoId, topico, nome, unidade)  -> a atividade criada (código = próximo livre do tópico),
 //                                  no formato de carregarBase e com trechoId
 //
@@ -116,7 +117,7 @@ var DadosMemoria = (function () {
           torres: copia(t.torres),
           atividades: t.atividades.map(function (a) {
             return { id: ++idAtiv, codigo: a.codigo, nome: a.nome, unidade: a.unidade, topico: a.topico,
-                     nomeTopico: a.nomeTopico, avulsa: false, partes: a.partes || null };
+                     nomeTopico: a.nomeTopico, avulsa: false, partes: a.partes || null, texto: !!a.texto };
           })
         };
       })
@@ -225,7 +226,7 @@ var DadosMemoria = (function () {
     var maxId = 0;
     M.base.trechos.forEach(function (x) { x.atividades.forEach(function (a) { maxId = Math.max(maxId, a.id); }); });
     var nova = { id: maxId + 1, trechoId: trechoId, codigo: topico + '.' + (maior + 1), nome: nome.trim().toUpperCase(),
-                 unidade: unidade.trim().toUpperCase(), topico: topico, nomeTopico: doTopico[0].nomeTopico, avulsa: true, partes: null };
+                 unidade: unidade.trim().toUpperCase(), topico: topico, nomeTopico: doTopico[0].nomeTopico, avulsa: true, partes: null, texto: false };
     t.atividades.push(nova);
     return nova;
   }
@@ -349,7 +350,8 @@ var DadosMemoria = (function () {
     gravarCelula: function (semana, canteiroId, atividadeId, tipo, dia, campos) {
       var erro = podeGravar(semana); if (erro) return falha(erro);
       var t = trechoDaAtividade(atividadeId);
-      if (campos.torres) {
+      var at = t.atividades.filter(function (a) { return a.id === atividadeId; })[0];
+      if (campos.torres && !(at && at.texto)) {
         var r = Regras.criar(t.torres);
         var ruins = campos.torres.filter(function (c) { return !r.existe(c); });
         if (ruins.length) return falha('Torres que não existem no trecho ' + t.id + ': ' + ruins.join(', '));

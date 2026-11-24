@@ -134,14 +134,14 @@ var Planilha = (function () {
             (falta ? '<span class="obr">obrigatório</span>' : esc(enc)) + '</td>';
           var listas = [];
           for (var i = 0; i < 7; i++) {
-            var x = App.cel(c, a.id, tp.k, i), txt = r.formatar(x.torres, a.unidade), cls = 'c';
+            var x = App.cel(c, a.id, tp.k, i), txt = Regras.celTexto(r, a, x.torres), cls = 'c';
             listas.push(x.torres);
             if (tp.k === 'E' && x.aConfirmar && x.torres.length) cls += ' pend';
             if (x.comentario) cls += ' cm';
             h += '<td class="' + cls + '" data-r="' + ri + '" data-c="' + (i + 1) + '"' + (x.comentario ? ' title="Comentário: ' + esc(x.comentario) + '"' : '') + '>' +
               (txt ? esc(txt) : dsr(i)) + '</td>';
           }
-          h += '<td class="calc">' + Regras.formatarTotal(r.total(listas, a.unidade), a.unidade) + '</td>';
+          h += '<td class="calc">' + Regras.formatarTotal(Regras.celTotal(r, a, listas), a.unidade) + '</td>';
           if (tp.n === 0) h += colControle(a, 3);
           h += '</tr>';
         });
@@ -178,8 +178,8 @@ var Planilha = (function () {
           for (var i = 0; i < 7; i++) {
             var listas = b.linhas.map(function (l) { return l.cels[i].torres; });
             todas = todas.concat(listas);
-            var u = r.uniao(listas);
-            dias.push(u.length ? r.formatar(u, a.unidade) : (i === 6 ? 'DSR' : ''));
+            var u = Regras.celUniao(r, a, listas);
+            dias.push(u.length ? Regras.celTexto(r, a, u) : (i === 6 ? 'DSR' : ''));
           }
           var encs = [];
           b.linhas.forEach(function (l) { var e = App.encarregado(l.ct.id, a.id, b.tp.k); if (e && encs.indexOf(e) < 0) encs.push(e); });
@@ -187,7 +187,7 @@ var Planilha = (function () {
           if (primeiro) corpo += '<td class="pl" rowspan="' + nRows + '">' + esc(a.codigo) + '</td><td rowspan="' + nRows + '" class="l pl">' + nomeAtividade(a, false) + '</td><td class="pl" rowspan="' + nRows + '">' + esc(a.unidade) + '</td>';
           corpo += '<td>' + b.tp.xl + '</td><td>' + esc(encs.join(' / ')) + '</td>' +
             dias.map(function (x) { return '<td>' + esc(x) + '</td>'; }).join('') +
-            '<td class="calc">' + Regras.formatarTotal(r.total(todas, a.unidade), a.unidade) + '</td>';
+            '<td class="calc">' + Regras.formatarTotal(Regras.celTotal(r, a, todas), a.unidade) + '</td>';
           if (primeiro) { corpo += colControle(a, nRows); primeiro = false; }
           corpo += '</tr>';
           b.linhas.forEach(function (l) {
@@ -207,11 +207,11 @@ var Planilha = (function () {
               });
               var conflito = dicas.length > 0;
               if (x.comentario) dicas.push('Comentário: ' + x.comentario);
-              var sk = l.ct.id + '|' + a.id + '|' + b.tp.k + '|' + i, txt = r.formatar(x.torres, a.unidade);
+              var sk = l.ct.id + '|' + a.id + '|' + b.tp.k + '|' + i, txt = Regras.celTexto(r, a, x.torres);
               corpo += '<td class="c ro' + (conflito ? ' w' : '') + (x.comentario ? ' cm' : '') + (App.E.ssel === sk ? ' sel' : '') + '" data-sk="' + sk + '"' +
                 (dicas.length ? ' title="' + esc(dicas.join(' | ')) + '"' : '') + '>' + (txt ? esc(txt) : dsr(i)) + '</td>';
             });
-            corpo += '<td class="calc">' + Regras.formatarTotal(r.total(l.cels.map(function (x) { return x.torres; }), a.unidade), a.unidade) + '</td></tr>';
+            corpo += '<td class="calc">' + Regras.formatarTotal(Regras.celTotal(r, a, l.cels.map(function (x) { return x.torres; })), a.unidade) + '</td></tr>';
           });
         });
       });
@@ -231,7 +231,7 @@ var Planilha = (function () {
           for (var i = 0; i < 7; i++) {
             var x = App.cel(ct.id, a.id, tp.k, i);
             if (!x.comentario) continue;
-            var txt = r.formatar(x.torres, a.unidade);
+            var txt = Regras.celTexto(r, a, x.torres);
             its.push('<li><b>' + esc(a.codigo + ' ' + a.nome) + '</b> · ' + (todos ? esc(ct.nome) + ' · ' : '') + tp.tar + ' · ' +
               App.DIAS[i] + ' ' + App.ddmm(App.data(tp.k, i)) + (txt ? ' (' + esc(txt) + ')' : '') + ': ' + esc(x.comentario) +
               (ed ? ' <button class="rm" data-rmcom="' + ct.id + '|' + a.id + '|' + tp.k + '|' + i + '">remover</button>' : '') + '</li>');

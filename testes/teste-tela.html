@@ -396,6 +396,30 @@ document.getElementById('app').addEventListener('load', async function () {
     confere('seta sem Shift volta a uma célula', !qa('td.rng').length && !!$('p-t'));
   });
 
+  await parte('atividade de texto', function () {
+    clica('#b-add'); if ($('ad-av').checked) muda('#ad-av', false); muda('#ad-g', '1'); muda('#ad-t', '1.4'); muda('#ad-a', String(ativ('X1', '1.4.1').id)); clica('#ad-ok'); clica('#ad-x');
+    var td = celula('1.4.1', 'P1', 2);
+    confere('painel com campo de texto, sem torres', !!$('p-txt') && !$('p-t') && /não é por torre/.test(q('#pane').textContent));
+    $('p-txt').value = '  Fundação   do galpão '; clica('#p-txt-ok');
+    var x = App.cel(cantId('Norte'), ativ('X1', '1.4.1').id, 'P1', 1);
+    confere('texto gravado na célula', igual(x.torres, ['Fundação do galpão']) && td().textContent === 'Fundação do galpão', [x.torres, td().textContent]);
+    confere('sem total semanal', td().parentNode.querySelector('td.calc').textContent === '');
+    celula('1.4.1', 'P1', 3);
+    $('p-txt').value = 'Cobertura'; celula('1.4.1', 'P1', 4);
+    confere('texto digitado é salvo ao trocar de célula', igual(App.cel(cantId('Norte'), ativ('X1', '1.4.1').id, 'P1', 2).torres, ['Cobertura']));
+    var dt = new W.DataTransfer(); dt.setData('text/plain', 'Pintura e acabamento');
+    D.body.dispatchEvent(new W.ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    confere('colar texto numa célula de texto', igual(App.cel(cantId('Norte'), ativ('X1', '1.4.1').id, 'P1', 3).torres, ['Pintura e acabamento']));
+    tecla('Delete');
+    confere('Delete apaga o texto', !App.cel(cantId('Norte'), ativ('X1', '1.4.1').id, 'P1', 3).torres.length);
+    muda('#f-cant', 'todos');
+    confere('consolidado mostra o texto', qa('#paper td').some(function (c) { return c.textContent === 'Fundação do galpão'; }));
+    muda('#f-cant', String(cantId('Norte')));
+    App.gravarCelula(cantId('Norte'), ativ('X1', '1.4.1').id, 'P1', 1, { torres: [] });
+    App.gravarCelula(cantId('Norte'), ativ('X1', '1.4.1').id, 'P1', 2, { torres: [] });
+    App.gravarVisibilidade(cantId('Norte'), ativ('X1', '1.4.1').id, false); App.render();
+  });
+
   await parte('revisão e elaborado', function () {
     muda('#f-rev', '1');
   });

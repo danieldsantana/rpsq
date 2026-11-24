@@ -66,9 +66,9 @@ var Painel = (function () {
   function textoHistorico(h, a) {
     var r = App.regras(), vazio = '(vazio)';
     function num(v) { return v === null || v === undefined || v === '' ? vazio : Number(v).toLocaleString('pt-BR'); }
-    function tor(l) { return l && l.length ? r.formatar(l, a.unidade) : vazio; }
+    function tor(l) { return l && l.length ? Regras.celTexto(r, a, l) : vazio; }
     switch (h.campo) {
-      case 'torres': return 'Torres: ' + tor(h.antes) + ' \u2192 ' + tor(h.depois);
+      case 'torres': return (a.texto ? 'Texto: ' : 'Torres: ') + tor(h.antes) + ' \u2192 ' + tor(h.depois);
       case 'comentario':
         if (!h.antes) return 'Comentário incluído: "' + h.depois + '"';
         if (!h.depois) return 'Comentário removido: "' + h.antes + '"';
@@ -152,13 +152,20 @@ var Painel = (function () {
     }
 
     var x = App.cel(s.c, s.a.id, s.tipo, s.dia), r = App.regras(), km = App.ehKm(s.a), ex = exemploTorre();
-    var pp = porPartes(s.a);
-    if (ed && pp) {
+    var pp = porPartes(s.a), atual = Regras.celTexto(r, s.a, x.torres);
+    if (s.a.texto) {
+      // atividade de texto: um campo livre no lugar das torres
+      h += ed ? '<div class="sec"><label for="p-txt"><b>Texto da célula</b></label><input type="text" class="larg" id="p-txt" autocomplete="off" value="' + esc(atual) + '">' +
+                '<div class="lin"><button class="rb main" id="p-txt-ok">Salvar</button>' + (atual ? '<button class="rb" id="p-limpa">Limpar célula</button>' : '') + '</div>' +
+                '<p class="dica">Esta atividade não é por torre: escreva o que foi feito ou o que está programado.</p></div>'
+              : '<div class="sec"><b>Texto da célula</b><div class="como">' + esc(atual) + '</div></div>';
+    }
+    if (ed && pp && !s.a.texto) {
       h += '<div class="sec"><b>' + nomePartes(s.a) + ' a lançar</b><div class="lin partes">' + Regras.PARTES.split('').map(function (l) {
         return '<label class="ck"><input type="checkbox" data-pt="' + l + '"' + (marcadas.indexOf(l) >= 0 ? ' checked' : '') + '> ' + l + '</label>';
       }).join('') + '</div><p class="dica">Todos marcados = torre inteira. Adicionar de novo uma torre troca as partes dela.</p></div>';
     }
-    if (ed) {
+    if (ed && !s.a.texto) {
       h += '<div class="sec"><label for="p-t"><b>Adicionar torre individual</b></label><div class="lin"><input type="text" id="p-t" list="dl-torres" autocomplete="off" placeholder="' + esc(ex) + '">' +
         '<button class="rb" id="p-add-t">Adicionar</button></div>' + (km ? '<p class="dica">Em KM, uma torre sozinha conta o vão à frente dela.</p>' : '') +
         (soEstaiadas(s.a) ? '<p class="dica">Esta atividade é só de torres estaiadas.</p>' : '') + '</div>';
@@ -180,10 +187,12 @@ var Painel = (function () {
     var n = r.ordenar(x.torres).length, completas = r.total([x.torres], 'TORRE');
     var q = km ? (n ? Regras.formatarTotal(r.total([x.torres], 'KM'), 'KM') + ' km' : '') : (n ? n + (n === 1 ? ' torre' : ' torres') : '');
     if (!km && n && completas < n) q += ', ' + (completas === 1 ? '1 completa' : completas + ' completas');
-    h += '<div class="sec"><b>' + (km ? 'Torres e intervalos adicionados' : 'Torres adicionadas') + (q ? ' (' + q + ')' : '') + '</b>' +
-      (chips ? '<div class="chips">' + chips + '</div>' : '<p class="dica">Nada lançado nesta célula.</p>') +
-      '<span class="dica">Como vai aparecer na célula:</span><div class="como">' + esc(r.formatar(x.torres, s.a.unidade)) + '</div>' +
-      (ed && n ? '<div class="lin"><button class="rb" id="p-limpa">Limpar célula</button></div>' : '') + '</div>';
+    if (!s.a.texto) {
+      h += '<div class="sec"><b>' + (km ? 'Torres e intervalos adicionados' : 'Torres adicionadas') + (q ? ' (' + q + ')' : '') + '</b>' +
+        (chips ? '<div class="chips">' + chips + '</div>' : '<p class="dica">Nada lançado nesta célula.</p>') +
+        '<span class="dica">Como vai aparecer na célula:</span><div class="como">' + esc(atual) + '</div>' +
+        (ed && n ? '<div class="lin"><button class="rb" id="p-limpa">Limpar célula</button></div>' : '') + '</div>';
+    } else n = x.torres.length;
     if (ed) {
       h += '<div class="sec"><label for="cm"><b>Comentário</b></label><textarea id="cm" placeholder="Opcional">' + esc(x.comentario) + '</textarea>' +
         '<div class="lin"><button class="rb" id="p-cm-ok">Salvar comentário</button>' + (x.comentario ? '<button class="rb" id="p-cm-rm">Remover</button>' : '') + '</div>' +
@@ -202,7 +211,14 @@ var Painel = (function () {
   function salvar() {
     var s = sel();
     if (!s || !App.podeEditar()) return false;
-    var mudou = false, cm = $('cm'), en = $('p-enc'), v;
+    var mudou = false, cm = $('cm'), en = $('p-enc'), tx = $('p-txt'), v;
+    if (tx && s.col > 0 && s.a.texto) {
+      v = tx.value.replace(/\s+/g, ' ').trim();
+      if (v !== Regras.celTexto(App.regras(), s.a, App.cel(s.c, s.a.id, s.tipo, s.dia).torres)) {
+        App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { torres: v ? [v] : [] });
+        tx.defaultValue = tx.value; mudou = true;
+      }
+    }
     if (cm && s.col > 0) {
       v = cm.value.trim();
       if (v !== App.cel(s.c, s.a.id, s.tipo, s.dia).comentario) {
@@ -221,7 +237,7 @@ var Painel = (function () {
     return mudou;
   }
   function foco() {
-    var el = $('p-t') || $('p-de') || $('p-enc');
+    var el = $('p-txt') || $('p-t') || $('p-de') || $('p-enc');
     if (el) el.focus();
     return el;
   }
@@ -303,6 +319,7 @@ var Painel = (function () {
     if (b.id === 'h-voltar') { modoHistorico = false; desenhar(); return true; }
     if (b.id === 'h-tudo') { tudo = !tudo; desenhar(); return true; }
     if (b.id === 'p-enc-ok') { redesenhaTudo(); return true; }
+    if (b.id === 'p-txt-ok') { hist.quando = 0; redesenhaTudo(); return true; }
     if (b.id === 'b-confall') { confirmarTodas(); return true; }
     if (b.id === 'b-add') {
       if (App.E.canteiro === App.TODOS) { App.toast('Escolha um canteiro para adicionar atividades.'); return true; }
@@ -344,7 +361,7 @@ var Painel = (function () {
     if (E.canteiro === App.TODOS) {
       if (!E.ssel) return null;
       var p = E.ssel.split('|'), a = App.ativ(+p[1]);
-      return { matriz: [[{ torres: App.cel(+p[0], a.id, p[2], +p[3]).torres, unidade: a.unidade }]],
+      return { matriz: [[{ torres: App.cel(+p[0], a.id, p[2], +p[3]).torres, a: a }]],
                onde: { c: +p[0], linhas: [{ aid: a.id, tipo: p[2] }], c1: +p[3] + 1, c2: +p[3] + 1 } };
     }
     var f = Planilha.faixaSel();
@@ -355,7 +372,7 @@ var Painel = (function () {
       linhas.push({ aid: a.id, tipo: nv.tipo });
       for (var c = f.c1; c <= f.c2; c++) {
         linha.push(c === 0 ? { nome: App.encarregado(E.canteiro, a.id, nv.tipo) }
-                           : { torres: App.cel(E.canteiro, a.id, nv.tipo, c - 1).torres, unidade: a.unidade });
+                           : { torres: App.cel(E.canteiro, a.id, nv.tipo, c - 1).torres, a: a });
       }
       matriz.push(linha);
     }
@@ -366,7 +383,7 @@ var Painel = (function () {
     if (!x) return;
     var r = App.regras();
     var texto = x.matriz.map(function (l) {
-      return l.map(function (k) { return k.nome !== undefined ? k.nome : r.formatar(k.torres, k.unidade); }).join('\t');
+      return l.map(function (k) { return k.nome !== undefined ? k.nome : Regras.celTexto(r, k.a, k.torres); }).join('\t');
     }).join('\n');
     ev.clipboardData.setData('text/plain', texto);
     ev.preventDefault();
@@ -385,6 +402,11 @@ var Painel = (function () {
       return { nome: (k.nome !== undefined ? k.nome : k.texto.split('\n')[0]).trim() };
     }
     if (k.nome !== undefined) return { erro: 'Não colei: o nome do encarregado não entra numa coluna de dia' + onde + '.' };
+    if (a.texto) {
+      var t = (k.torres ? Regras.celTexto(r, k.a, k.torres) : k.texto).replace(/\s+/g, ' ').trim();
+      return { torres: t ? [t] : [] };
+    }
+    if (k.torres && k.a && k.a.texto) k = { texto: k.torres.join(' / ') }; // texto copiado de uma atividade de texto
     var lista;
     if (k.torres) lista = k.torres.slice();
     else {
@@ -443,7 +465,7 @@ var Painel = (function () {
     var p0 = plano[0];
     if (plano.length > 1) App.toast('Coladas ' + plano.length + ' células.');
     else if (p0.c === 0) App.toast('Encarregado colado: ' + p0.v.nome);
-    else App.toast(p0.v.torres.length ? 'Colado: ' + App.regras().formatar(p0.v.torres, p0.a.unidade) : 'Colada uma célula vazia: as torres foram apagadas.');
+    else App.toast(p0.v.torres.length ? 'Colado: ' + Regras.celTexto(App.regras(), p0.a, p0.v.torres) : 'Colada uma célula vazia: as torres foram apagadas.');
   }
 
   // ---------- Adicionar atividade (cascata Grupo > Tópico > Atividade) ----------
@@ -550,6 +572,7 @@ var Painel = (function () {
     if (k !== 'Enter' || ev.shiftKey) return;
     if (t.id === 'cm') { ev.preventDefault(); salvar(); redesenhaTudo(); App.toast('Comentário salvo.'); }
     else if (t.id === 'p-t') { ev.preventDefault(); $('p-add-t').click(); }
+    else if (t.id === 'p-txt') { ev.preventDefault(); salvar(); redesenhaTudo(); Planilha.move(0, 1); }
     else if (t.id === 'p-de') { ev.preventDefault(); $('p-ate').focus(); }
     else if (t.id === 'p-ate') { ev.preventDefault(); $('p-add-i').click(); }
     else if (t.id === 'p-enc') { ev.preventDefault(); salvar(); redesenhaTudo(); Planilha.move(1, 0); }

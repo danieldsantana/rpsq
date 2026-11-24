@@ -159,6 +159,15 @@ bloco('partes', function () {
   confere('ida e volta com partes (300 casos)', falhas.length === 0, falhas.slice(0, 2));
 });
 
+bloco('atividade de texto', function () {
+  var tx = { texto: true, unidade: 'UND' }, tor = { unidade: 'TORRE' };
+  confere('texto aparece como foi escrito', Regras.celTexto(r, tx, ['Fundação do galpão']) === 'Fundação do galpão');
+  confere('sem total', Regras.celTotal(r, tx, [['a'], ['b']]) === 0);
+  confere('união junta textos diferentes, sem repetir', igual(Regras.celUniao(r, tx, [['Cobertura'], ['Pintura'], ['Cobertura']]), ['Cobertura', 'Pintura']));
+  confere('consolidado separa por barra', Regras.celTexto(r, tx, Regras.celUniao(r, tx, [['Cobertura'], ['Pintura']])) === 'Cobertura / Pintura');
+  confere('atividade de torre segue as regras de sempre', Regras.celTexto(r, tor, ['5/1', '5/2', '6/1']) === '5/1 a 6/1' && Regras.celTotal(r, tor, [['5/1', '5/2']]) === 2);
+});
+
 bloco('formato do total', function () {
   confere('KM com duas casas e vírgula', Regras.formatarTotal(3.4567, 'KM') === '3,46', Regras.formatarTotal(3.4567, 'KM'));
   confere('TORRE como número inteiro', Regras.formatarTotal(12, 'TORRE') === '12');
