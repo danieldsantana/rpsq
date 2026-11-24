@@ -122,6 +122,14 @@ var Painel = (function () {
     pn.hidden = false;
     var s = sel(), ed = App.podeEditar(), motivo = App.motivoSoLeitura();
     if (modoHistorico) { desenharHistorico(pn, s); return; }
+    var f = Planilha.faixaSel();
+    if (f && (f.r1 !== f.r2 || f.c1 !== f.c2)) {
+      var nc = (f.r2 - f.r1 + 1) * (f.c2 - f.c1 + 1);
+      pn.innerHTML = '<h3>' + nc + ' células selecionadas</h3><p class="dica">Ctrl+C copia, Ctrl+V cola e Delete apaga as torres' +
+        (f.c1 === 0 ? ' e os encarregados' : '') + ' de todas. Os comentários ficam.</p>' +
+        '<p class="dica">Para lançar torres ou comentário, clique numa célula só.</p>';
+      return;
+    }
     if (!s) {
       pn.innerHTML = '<h3>Lançamento</h3><p class="dica">' +
         esc(ed ? 'Clique numa célula da planilha para lançar as torres, o encarregado ou um comentário.' : motivo) + '</p>';
@@ -222,11 +230,16 @@ var Painel = (function () {
 
   // Delete na célula selecionada: apaga as torres (o comentário fica) ou o encarregado
   function apagar() {
-    var s = sel();
-    if (!s || !App.podeEditar()) return;
+    var s = sel(), E = App.E, f = Planilha.faixaSel();
+    if (!s || !f || !App.podeEditar()) return;
     hist.quando = 0;
-    if (s.col === 0) App.gravarEncarregado(s.c, s.a.id, s.tipo, '');
-    else App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { torres: [] });
+    for (var r = f.r1; r <= f.r2; r++) {
+      var nv = E.nav[r];
+      for (var c = f.c1; c <= f.c2; c++) {
+        if (c === 0) { if (App.encarregado(E.canteiro, nv.aid, nv.tipo)) App.gravarEncarregado(E.canteiro, nv.aid, nv.tipo, ''); }
+        else if (App.cel(E.canteiro, nv.aid, nv.tipo, c - 1).torres.length) App.gravarCelula(E.canteiro, nv.aid, nv.tipo, c - 1, { torres: [] });
+      }
+    }
     redesenhaTudo();
   }
   // adiciona as torres; nas atividades por partes, com as partes marcadas, trocando as que a torre já tinha
@@ -315,68 +328,122 @@ var Painel = (function () {
   }
 
   // ---------- copiar e colar (Ctrl+C / Ctrl+V; pedido do usuário em 24/11/2026) ----------
-  // Copiar leva o texto da célula para a área de transferência (dá para colar no Excel ou numa mensagem).
-  // Colar substitui as torres da célula selecionada, como no Excel; o comentário fica. Aceita também texto
-  // de fora, desde que seja só torres e intervalos do trecho. Na coluna ENCARREGADO, copia e cola o nome.
-  var copiado = null; // { trecho, texto, torres }: a última célula copiada no app, para colar exatamente igual
-  function celulaParaCopiar() {
+  // Copiar leva o texto das células para a área de transferência, como o Excel: colunas separadas por
+  // tabulação e linhas por quebra de linha (dá para colar no Excel). Colar substitui as torres das células,
+  // como no Excel; o comentário fica. Um bloco copiado é colado a partir da primeira célula selecionada;
+  // uma célula só, colada numa seleção de várias, vai para todas. Aceita texto de fora, desde que seja só
+  // torres e intervalos do trecho. Na coluna ENCARREGADO, copia e cola o nome. Se alguma célula não puder
+  // receber o que foi colado, nada é colado.
+  var copiado = null; // { trecho, texto, matriz }: o último bloco copiado no app, para colar exatamente igual
+  function rotulo(a, tipo, col) {
+    return a.codigo + ' ' + App.tipo(tipo).tar + ' ' + (col === 0 ? 'Encarregado' : App.DIAS[col - 1]);
+  }
+  // as células do bloco a copiar: matriz de { nome } (encarregado) ou { torres, unidade }
+  function blocoParaCopiar() {
     var E = App.E;
     if (E.canteiro === App.TODOS) {
       if (!E.ssel) return null;
       var p = E.ssel.split('|'), a = App.ativ(+p[1]);
-      return { a: a, torres: App.cel(+p[0], a.id, p[2], +p[3]).torres, onde: { c: +p[0], aid: a.id, tipo: p[2], col: +p[3] + 1 } };
+      return { matriz: [[{ torres: App.cel(+p[0], a.id, p[2], +p[3]).torres, unidade: a.unidade }]],
+               onde: { c: +p[0], linhas: [{ aid: a.id, tipo: p[2] }], c1: +p[3] + 1, c2: +p[3] + 1 } };
     }
-    var s = sel();
-    if (!s) return null;
-    var onde = { c: s.c, aid: s.a.id, tipo: s.tipo, col: s.col };
-    if (s.col === 0) return { a: s.a, nome: App.encarregado(s.c, s.a.id, s.tipo), onde: onde };
-    return { a: s.a, torres: App.cel(s.c, s.a.id, s.tipo, s.dia).torres, onde: onde };
+    var f = Planilha.faixaSel();
+    if (!f) return null;
+    var matriz = [], linhas = [];
+    for (var r = f.r1; r <= f.r2; r++) {
+      var nv = E.nav[r], a = App.ativ(nv.aid), linha = [];
+      linhas.push({ aid: a.id, tipo: nv.tipo });
+      for (var c = f.c1; c <= f.c2; c++) {
+        linha.push(c === 0 ? { nome: App.encarregado(E.canteiro, a.id, nv.tipo) }
+                           : { torres: App.cel(E.canteiro, a.id, nv.tipo, c - 1).torres, unidade: a.unidade });
+      }
+      matriz.push(linha);
+    }
+    return { matriz: matriz, onde: { c: E.canteiro, linhas: linhas, c1: f.c1, c2: f.c2 } };
   }
   function copiar(ev) {
-    var x = celulaParaCopiar();
+    var x = blocoParaCopiar();
     if (!x) return;
-    var texto = x.nome !== undefined ? x.nome : App.regras().formatar(x.torres, x.a.unidade);
+    var r = App.regras();
+    var texto = x.matriz.map(function (l) {
+      return l.map(function (k) { return k.nome !== undefined ? k.nome : r.formatar(k.torres, k.unidade); }).join('\t');
+    }).join('\n');
     ev.clipboardData.setData('text/plain', texto);
     ev.preventDefault();
-    copiado = x.nome !== undefined ? null : { trecho: App.E.trecho.id, texto: texto, torres: x.torres.slice() };
+    copiado = { trecho: App.E.trecho.id, texto: texto, matriz: x.matriz };
     x.onde.semana = App.E.semana.inicio;
     App.E.copiada = x.onde;
     Planilha.marcaCopia();
-    App.toast(texto ? 'Copiado: ' + texto : 'Copiada uma célula vazia.');
+    var n = x.matriz.length * x.matriz[0].length;
+    App.toast(n > 1 ? 'Copiadas ' + n + ' células.' : (texto ? 'Copiado: ' + texto : 'Copiada uma célula vazia.'));
+  }
+  // o que vai para uma célula: { torres } ou { nome }, ou { erro }
+  function valorPara(a, tipo, col, k) {
+    var r = App.regras(), onde = ' (' + rotulo(a, tipo, col) + ')';
+    if (col === 0) {
+      if (k.torres) return { erro: 'Não colei: torres não entram na coluna ENCARREGADO' + onde + '.' };
+      return { nome: (k.nome !== undefined ? k.nome : k.texto.split('\n')[0]).trim() };
+    }
+    if (k.nome !== undefined) return { erro: 'Não colei: o nome do encarregado não entra numa coluna de dia' + onde + '.' };
+    var lista;
+    if (k.torres) lista = k.torres.slice();
+    else {
+      var lido = r.ler(k.texto, a.unidade);
+      if (lido.invalidas.length) return { erro: 'Não colei: torres que não existem no trecho ' + App.E.trecho.id + ': ' + lido.invalidas.join(', ') + onde + '.' };
+      if (lido.resto) return { erro: 'Não colei: "' + lido.resto + '" não é torre nem intervalo' + onde + '.' };
+      lista = lido.codigos;
+    }
+    if (lista.some(function (t) { return Regras.separa(t).partes; }) && !porPartes(a)) {
+      return { erro: 'Não colei: ' + a.codigo + ' não é lançada por pés ou estais.' };
+    }
+    if (soEstaiadas(a)) {
+      var auto = lista.filter(function (t) { return r.familia(t) !== 'E'; }).map(function (t) { return Regras.separa(t).torre; });
+      if (auto.length) return { erro: 'Não colei: ' + a.codigo + ' é só de torres estaiadas, e ' + auto.join(', ') + (auto.length > 1 ? ' são autoportantes.' : ' é autoportante.') };
+    }
+    return { torres: r.ordenar(lista) };
   }
   function colar(ev) {
-    var s = sel();
-    if (!s) return;
+    var E = App.E, f = Planilha.faixaSel();
+    if (!sel() || !f) return;
     ev.preventDefault();
     if (!App.podeEditar()) { App.toast(App.motivoSoLeitura()); return; }
     var texto = String(ev.clipboardData.getData('text/plain') || '').replace(/\r/g, '');
-    if (s.col === 0) {
-      var nome = texto.split('\n')[0].trim();
-      if (!nome) return;
-      App.gravarEncarregado(s.c, s.a.id, s.tipo, nome);
-      hist.quando = 0; redesenhaTudo();
-      App.toast('Encarregado colado: ' + nome);
-      return;
-    }
-    var r = App.regras(), lista, trecho = App.E.trecho.id;
-    if (copiado && copiado.trecho === trecho && copiado.texto === texto) lista = copiado.torres.slice();
+    var matriz;
+    if (copiado && copiado.trecho === E.trecho.id && copiado.texto === texto) matriz = copiado.matriz;
     else {
       if (!texto.trim()) return;
-      // do Excel vem com tabulação e quebra de linha entre as células
-      var lido = r.ler(texto.replace(/[\t\n]+/g, ', '), s.a.unidade);
-      if (lido.invalidas.length) { App.toast('Não colei: torres que não existem no trecho ' + trecho + ': ' + lido.invalidas.join(', ') + '.'); return; }
-      if (lido.resto) { App.toast('Não colei: "' + lido.resto + '" não é torre nem intervalo.'); return; }
-      lista = lido.codigos;
+      var linhas = texto.replace(/\n+$/, '').split('\n');
+      matriz = linhas.map(function (l) { return l.split('\t').map(function (t) { return { texto: t }; }); });
     }
-    var comPartes = lista.filter(function (t) { return Regras.separa(t).partes; });
-    if (comPartes.length && !porPartes(s.a)) { App.toast('Não colei: esta atividade não é lançada por pés ou estais.'); return; }
-    if (soEstaiadas(s.a)) {
-      var auto = lista.filter(function (t) { return r.familia(t) !== 'E'; }).map(function (t) { return Regras.separa(t).torre; });
-      if (auto.length) { App.toast('Não colei: esta atividade é só de torres estaiadas, e ' + auto.join(', ') + (auto.length > 1 ? ' são autoportantes.' : ' é autoportante.')); return; }
+    var m = matriz.length, n = Math.max.apply(null, matriz.map(function (l) { return l.length; }));
+    var alvos = [];
+    if (m === 1 && n === 1) {
+      if (f.c1 === 0 && f.c2 > 0) { App.toast('Não colei: para repetir uma célula, selecione só a coluna ENCARREGADO ou só dias.'); return; }
+      for (var r = f.r1; r <= f.r2; r++) for (var c = f.c1; c <= f.c2; c++) alvos.push({ r: r, c: c, k: matriz[0][0] });
+    } else {
+      if (f.r1 + m > E.nav.length || f.c1 + n > 8) {
+        App.toast('Não colei: o bloco copiado (' + m + (m > 1 ? ' linhas' : ' linha') + ' × ' + n + (n > 1 ? ' colunas' : ' coluna') + ') passa do fim da planilha.');
+        return;
+      }
+      for (var i = 0; i < m; i++) for (var j = 0; j < n; j++) alvos.push({ r: f.r1 + i, c: f.c1 + j, k: matriz[i][j] || { texto: '' } });
     }
-    App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { torres: r.ordenar(lista) });
+    // confere tudo antes de gravar
+    var plano = [];
+    for (var x = 0; x < alvos.length; x++) {
+      var al = alvos[x], nv = E.nav[al.r], a = App.ativ(nv.aid), v = valorPara(a, nv.tipo, al.c, al.k);
+      if (v.erro) { App.toast(v.erro); return; }
+      plano.push({ a: a, tipo: nv.tipo, c: al.c, v: v });
+    }
+    plano.forEach(function (p) {
+      if (p.c === 0) { if (p.v.nome !== App.encarregado(E.canteiro, p.a.id, p.tipo)) App.gravarEncarregado(E.canteiro, p.a.id, p.tipo, p.v.nome); }
+      else App.gravarCelula(E.canteiro, p.a.id, p.tipo, p.c - 1, { torres: p.v.torres });
+    });
+    if (!(m === 1 && n === 1)) Planilha.selecionaFaixa(f.r1, f.c1, f.r1 + m - 1, f.c1 + n - 1);
     hist.quando = 0; redesenhaTudo();
-    App.toast(lista.length ? 'Colado: ' + r.formatar(lista, s.a.unidade) : 'Colada uma célula vazia: as torres foram apagadas.');
+    var p0 = plano[0];
+    if (plano.length > 1) App.toast('Coladas ' + plano.length + ' células.');
+    else if (p0.c === 0) App.toast('Encarregado colado: ' + p0.v.nome);
+    else App.toast(p0.v.torres.length ? 'Colado: ' + App.regras().formatar(p0.v.torres, p0.a.unidade) : 'Colada uma célula vazia: as torres foram apagadas.');
   }
 
   // ---------- Adicionar atividade (cascata Grupo > Tópico > Atividade) ----------

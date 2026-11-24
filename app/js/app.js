@@ -29,6 +29,7 @@ var App = (function () {
     cel: {}, enc: {}, vis: {}, ctrl: {},
     trecho: null, canteiro: null,      // canteiro: id do canteiro ou TODOS
     sel: null, ssel: null, nav: [],    // seleção na visão do canteiro ({r, c}) e no consolidado (chave)
+    selFim: null,                      // outro canto da seleção de várias células ({r, c}), ou null
     copiada: null,                     // célula copiada com Ctrl+C, destacada como no Excel: { semana, c, aid, tipo, col }
     addAberto: false, add: { g: '', t: '', a: '', avulsa: false },
     tela: 'planilha'                   // 'planilha' ou 'usuarios' (administrador)
@@ -260,7 +261,13 @@ var App = (function () {
     }
     var s = E.sel, nv = s && E.nav[s.r];
     if (!nv) { nb.innerHTML = '&nbsp;'; fx.value = ''; Painel.desenhar(); return; }
-    var at = ativ(nv.aid), t = tipo(nv.tipo);
+    var at = ativ(nv.aid), t = tipo(nv.tipo), f = Planilha.faixaSel();
+    if (f && (f.r1 !== f.r2 || f.c1 !== f.c2)) {
+      nb.textContent = (f.r2 - f.r1 + 1) + 'L × ' + (f.c2 - f.c1 + 1) + 'C';
+      fx.value = '';
+      Painel.desenhar();
+      return;
+    }
     nb.textContent = at.codigo + ' · ' + t.tar + ' · ' + (s.c === 0 ? 'Encarregado' : DIAS[s.c - 1] + ' ' + ddmm(data(t.k, s.c - 1)));
     fx.value = s.c === 0 ? encarregado(E.canteiro, at.id, t.k) : regras().formatar(cel(E.canteiro, at.id, t.k, s.c - 1).torres, at.unidade);
     Painel.desenhar();
@@ -397,10 +404,11 @@ var App = (function () {
     if (t.matches && t.matches('input,textarea,select,button')) return;
     if (k === 'Escape' && E.copiada) { E.copiada = null; Planilha.marcaCopia(); return; }
     if (E.canteiro === TODOS || !E.sel) return;
-    if (k === 'ArrowDown') { ev.preventDefault(); Planilha.move(1, 0); }
-    else if (k === 'ArrowUp') { ev.preventDefault(); Planilha.move(-1, 0); }
-    else if (k === 'ArrowRight') { ev.preventDefault(); Planilha.move(0, 1); }
-    else if (k === 'ArrowLeft') { ev.preventDefault(); Planilha.move(0, -1); }
+    var sh = ev.shiftKey; // Shift+setas estende a seleção
+    if (k === 'ArrowDown') { ev.preventDefault(); Planilha.move(1, 0, sh); }
+    else if (k === 'ArrowUp') { ev.preventDefault(); Planilha.move(-1, 0, sh); }
+    else if (k === 'ArrowRight') { ev.preventDefault(); Planilha.move(0, 1, sh); }
+    else if (k === 'ArrowLeft') { ev.preventDefault(); Planilha.move(0, -1, sh); }
     else if (k === 'Tab') { ev.preventDefault(); Planilha.move(0, ev.shiftKey ? -1 : 1); }
     else if (k === 'Enter' || k === 'F2') { ev.preventDefault(); Painel.foco(); }
     else if (k === 'Delete' || k === 'Backspace') { ev.preventDefault(); Painel.apagar(); }

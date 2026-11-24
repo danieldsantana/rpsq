@@ -273,30 +273,54 @@ var Planilha = (function () {
       return;
     }
     // a seleção é guardada pela linha da planilha; se as linhas mudarem, ela acompanha a mesma atividade
-    var antes = E.sel && E.nav[E.sel.r];
+    var antes = E.sel && E.nav[E.sel.r], antesFim = E.sel && E.selFim && E.nav[E.selFim.r];
     $('paper').innerHTML = cabecalho() + (E.canteiro === App.TODOS ? folhaTodos() : folhaCanteiro()) + observacoes() + rodape();
     if (antes) {
       var r = -1;
       E.nav.forEach(function (n, i) { if (r < 0 && n.aid === antes.aid && n.tipo === antes.tipo) r = i; });
       E.sel = r >= 0 ? { r: r, c: E.sel.c } : null;
     }
+    if (antesFim && E.sel) {
+      var rf = -1;
+      E.nav.forEach(function (n, i) { if (rf < 0 && n.aid === antesFim.aid && n.tipo === antesFim.tipo) rf = i; });
+      E.selFim = rf >= 0 ? { r: rf, c: E.selFim.c } : null;
+    } else E.selFim = null;
     abas();
     aplicaSel();
     marcaCopia();
   }
-  // borda tracejada na célula copiada (Ctrl+C), como no Excel; some com Esc ou com uma nova cópia
+  // borda tracejada em volta das células copiadas (Ctrl+C), como no Excel; some com Esc ou com uma nova cópia
   function marcaCopia() {
-    var E = App.E, k = E.copiada, td = null;
-    document.querySelectorAll('td.cop').forEach(function (t) { t.classList.remove('cop'); });
-    if (!k || !E.semana || k.semana !== E.semana.inicio) return;
+    var E = App.E, k = E.copiada, paper = $('paper');
+    var velha = document.querySelector('.marca-copia');
+    if (velha) velha.parentNode.removeChild(velha);
+    if (!k || !E.semana || k.semana !== E.semana.inicio || !paper) return;
+    var a = null, b = null;
     if (E.canteiro === App.TODOS) {
-      if (k.col > 0) td = document.querySelector('td[data-sk="' + k.c + '|' + k.aid + '|' + k.tipo + '|' + (k.col - 1) + '"]');
+      if (k.linhas.length === 1 && k.c1 === k.c2 && k.c1 > 0) {
+        a = b = document.querySelector('td[data-sk="' + k.c + '|' + k.linhas[0].aid + '|' + k.linhas[0].tipo + '|' + (k.c1 - 1) + '"]');
+      }
     } else if (E.canteiro === k.c) {
-      var r = -1;
-      E.nav.forEach(function (n, i) { if (r < 0 && n.aid === k.aid && n.tipo === k.tipo) r = i; });
-      if (r >= 0) td = document.querySelector('td[data-r="' + r + '"][data-c="' + k.col + '"]');
+      var rs = k.linhas.map(function (l) {
+        var r = -1;
+        E.nav.forEach(function (n, i) { if (r < 0 && n.aid === l.aid && n.tipo === l.tipo) r = i; });
+        return r;
+      });
+      if (rs.every(function (r) { return r >= 0; })) {
+        var r1 = Math.min.apply(null, rs), r2 = Math.max.apply(null, rs);
+        a = document.querySelector('td[data-r="' + r1 + '"][data-c="' + k.c1 + '"]');
+        b = document.querySelector('td[data-r="' + r2 + '"][data-c="' + k.c2 + '"]');
+      }
     }
-    if (td) td.classList.add('cop');
+    if (!a || !b) return;
+    var pr = paper.getBoundingClientRect(), ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    var m = document.createElement('div');
+    m.className = 'marca-copia';
+    m.style.left = (ra.left - pr.left - paper.clientLeft) + 'px';
+    m.style.top = (ra.top - pr.top - paper.clientTop) + 'px';
+    m.style.width = (rb.right - ra.left) + 'px';
+    m.style.height = (rb.bottom - ra.top) + 'px';
+    paper.appendChild(m);
   }
   function redesenhar() {
     var area = $('area'), x = area.scrollLeft, y = area.scrollTop;
@@ -305,20 +329,47 @@ var Planilha = (function () {
   }
 
   // ---------- seleção ----------
+  // E.sel é a célula ativa (a do painel); E.selFim, quando existe, é o outro canto de uma seleção de
+  // várias células (Shift+clique, Shift+setas ou arrastar com o mouse), como no Excel.
   function selTd() {
     var s = App.E.sel;
     return s ? document.querySelector('td[data-r="' + s.r + '"][data-c="' + s.c + '"]') : null;
   }
-  function aplicaSel() {
-    document.querySelectorAll('td.c.sel[data-r]').forEach(function (t) { t.classList.remove('sel'); });
-    var td = selTd();
-    if (td) { td.classList.add('sel'); try { td.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* navegador antigo */ } }
+  function faixaSel() {
+    var E = App.E, s = E.sel;
+    if (!s || E.canteiro === App.TODOS) return null;
+    var f = E.selFim || s;
+    return { r1: Math.min(s.r, f.r), r2: Math.max(s.r, f.r), c1: Math.min(s.c, f.c), c2: Math.max(s.c, f.c) };
   }
-  function seleciona(r, c) { App.E.sel = { r: r, c: c }; aplicaSel(); App.faixa(); }
-  function move(dr, dc) {
-    var s = App.E.sel, n = App.E.nav.length;
+  function aplicaSel() {
+    document.querySelectorAll('td.c.sel[data-r], td.rng').forEach(function (t) { t.classList.remove('sel'); t.classList.remove('rng'); });
+    var td = selTd(), f = faixaSel(), E = App.E;
+    if (f && (f.r1 !== f.r2 || f.c1 !== f.c2)) {
+      for (var r = f.r1; r <= f.r2; r++) for (var c = f.c1; c <= f.c2; c++) {
+        var x = document.querySelector('td[data-r="' + r + '"][data-c="' + c + '"]');
+        if (x) x.classList.add('rng');
+      }
+    }
+    if (td) td.classList.add('sel');
+    var ver = E.selFim ? document.querySelector('td[data-r="' + E.selFim.r + '"][data-c="' + E.selFim.c + '"]') : td;
+    if (ver) { try { ver.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* navegador antigo */ } }
+  }
+  // estender = true: muda só o outro canto da seleção
+  function seleciona(r, c, estender) {
+    var E = App.E;
+    if (estender && E.sel) E.selFim = (r === E.sel.r && c === E.sel.c) ? null : { r: r, c: c };
+    else { E.sel = { r: r, c: c }; E.selFim = null; }
+    aplicaSel(); App.faixa();
+  }
+  function selecionaFaixa(r1, c1, r2, c2) {
+    App.E.sel = { r: r1, c: c1 };
+    App.E.selFim = (r1 === r2 && c1 === c2) ? null : { r: r2, c: c2 };
+  }
+  function move(dr, dc, estender) {
+    var E = App.E, s = E.sel, n = E.nav.length;
     if (!s || !n) return;
-    seleciona(Math.max(0, Math.min(n - 1, s.r + dr)), Math.max(0, Math.min(7, s.c + dc)));
+    var base = estender && E.selFim ? E.selFim : s;
+    seleciona(Math.max(0, Math.min(n - 1, base.r + dr)), Math.max(0, Math.min(7, base.c + dc)), estender);
   }
 
   // dois cliques na borda da letra: largura da coluna pelo maior conteúdo
@@ -369,11 +420,13 @@ var Planilha = (function () {
     }
     return false;
   }
+  var arrastando = false;
   document.addEventListener('mousedown', function (ev) {
     var td = ev.target.closest && ev.target.closest('td[data-r]');
     if (td && App.E.canteiro !== App.TODOS) {
       Painel.salvar();
-      seleciona(+td.dataset.r, +td.dataset.c);
+      seleciona(+td.dataset.r, +td.dataset.c, ev.shiftKey && !!App.E.sel);
+      arrastando = ev.button === 0;
       return;
     }
     var sk = ev.target.closest && ev.target.closest('td[data-sk]');
@@ -384,6 +437,16 @@ var Planilha = (function () {
       App.faixa();
     }
   });
+  // arrastar com o botão apertado estende a seleção
+  document.addEventListener('mouseover', function (ev) {
+    if (!arrastando) return;
+    if (!(ev.buttons & 1)) { arrastando = false; return; }
+    var td = ev.target.closest && ev.target.closest('td[data-r]'), E = App.E;
+    if (!td || !E.sel) return;
+    var r = +td.dataset.r, c = +td.dataset.c, f = E.selFim || E.sel;
+    if (r !== f.r || c !== f.c) seleciona(r, c, true);
+  });
+  document.addEventListener('mouseup', function () { arrastando = false; });
   document.addEventListener('dblclick', function (ev) {
     if (ev.target.closest && ev.target.closest('td[data-r]') && App.E.canteiro !== App.TODOS) Painel.foco();
   });
@@ -440,6 +503,7 @@ var Planilha = (function () {
 
   return {
     desenhar: desenhar, redesenhar: redesenhar, seleciona: seleciona, move: move, selTd: selTd,
+    faixaSel: faixaSel, selecionaFaixa: selecionaFaixa,
     clique: clique, atualizaControle: atualizaControle, linhasDe: linhasDe, marcaCopia: marcaCopia
   };
 })();

@@ -308,17 +308,24 @@ document.getElementById('app').addEventListener('load', async function () {
       D.body.dispatchEvent(new W.ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
     }
     function aviso() { return $('toast').textContent; }
+    // a borda tracejada cobre exatamente estas células?
+    function marcada(a, b) {
+      var m = q('.marca-copia'); if (!m) return false;
+      var rm = m.getBoundingClientRect(), ra = a.getBoundingClientRect(), rb = (b || a).getBoundingClientRect();
+      return Math.abs(rm.left - ra.left) < 2 && Math.abs(rm.top - ra.top) < 2 && Math.abs(rm.right - rb.right) < 2 && Math.abs(rm.bottom - rb.bottom) < 2;
+    }
     var origem = celula('2.1.1', 'P1', 1);
     confere('Ctrl+C copia o texto da célula', copia() === '2/2 a 3/2', aviso());
-    confere('a célula copiada fica destacada', origem().classList.contains('cop') && qa('td.cop').length === 1);
+    confere('a célula copiada fica destacada', marcada(origem()) && qa('.marca-copia').length === 1);
     var td = celula('2.1.1', 'P1', 3);
     cola('2/2 a 3/2');
-    confere('o destaque continua depois de colar', origem().classList.contains('cop'));
+    confere('o destaque continua depois de colar', marcada(origem()));
     confere('Ctrl+V cola as mesmas torres', igual(torres('Norte', '2.1.1', 'P1', 2), ['2/2', '3/1', '3/2']) && td().textContent === '2/2 a 3/2', torres('Norte', '2.1.1', 'P1', 2));
     tecla('Escape');
-    confere('Esc tira o destaque', qa('td.cop').length === 0);
+    confere('Esc tira o destaque', qa('.marca-copia').length === 0);
     cola('5/1 a 5/2\t6/1\r\n');
-    confere('texto de fora (do Excel) substitui as torres', igual(torres('Norte', '2.1.1', 'P1', 2), ['5/1', '5/2', '6/1']), torres('Norte', '2.1.1', 'P1', 2));
+    confere('bloco de fora (do Excel) vai para as células ao lado', igual(torres('Norte', '2.1.1', 'P1', 2), ['5/1', '5/2']) && igual(torres('Norte', '2.1.1', 'P1', 3), ['6/1']), [torres('Norte', '2.1.1', 'P1', 2), torres('Norte', '2.1.1', 'P1', 3)]);
+    celula('2.1.1', 'P1', 3); cola('5/1 a 5/2, 6/1');
     cola('chuva');
     confere('texto que não é torre é recusado', /Não colei/.test(aviso()) && igual(torres('Norte', '2.1.1', 'P1', 2), ['5/1', '5/2', '6/1']), aviso());
     cola('99/9');
@@ -338,12 +345,55 @@ document.getElementById('app').addEventListener('load', async function () {
     muda('#f-cant', 'todos');
     mouse(q('td.c[data-sk="' + cantId('Sul') + '|' + ativ('X1', '2.1.1').id + '|P1|0"]'));
     confere('no consolidado também copia', copia() === '3/1, 3/2, 10/1', aviso());
-    confere('no consolidado também destaca', qa('td.cop').length === 1 && q('td.cop').dataset.sk === cantId('Sul') + '|' + ativ('X1', '2.1.1').id + '|P1|0');
+    confere('no consolidado também destaca', marcada(q('td.c[data-sk="' + cantId('Sul') + '|' + ativ('X1', '2.1.1').id + '|P1|0"]')));
     muda('#f-cant', String(cantId('Norte')));
     App.E.usuario.papel = 'consulta'; Dados.definirPapel('consulta'); App.render();
     celula('2.1.1', 'P1', 3); cola('5/1');
     confere('papel de consulta não cola', !torres('Norte', '2.1.1', 'P1', 2).length);
     App.E.usuario.papel = 'admin'; Dados.definirPapel('admin'); App.render();
+  });
+
+  await parte('várias células', function () {
+    function copia() {
+      var dt = new W.DataTransfer();
+      D.body.dispatchEvent(new W.ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }));
+      return dt.getData('text/plain');
+    }
+    function cola(texto) {
+      var dt = new W.DataTransfer(); dt.setData('text/plain', texto);
+      D.body.dispatchEvent(new W.ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    }
+    function shift(td) { td.dispatchEvent(new W.MouseEvent('mousedown', { bubbles: true, shiftKey: true })); }
+    function aviso() { return $('toast').textContent; }
+    var a = celula('2.1.1', 'P1', 1)();
+    shift(q('td[data-r="' + a.dataset.r + '"][data-c="2"]'));
+    confere('Shift+clique seleciona duas células', qa('td.rng').length === 2 && /2 células selecionadas/.test(q('#pane').textContent), qa('td.rng').length);
+    confere('caixa de nome mostra o tamanho', $('namebox').textContent === '1L × 2C', $('namebox').textContent);
+    confere('copiar duas células: separadas por tabulação', copia() === '2/2 a 3/2\t', JSON.stringify(copia()));
+    celula('2.1.1', 'P1', 3);
+    cola('2/2 a 3/2\t');
+    confere('colar o bloco a partir da célula selecionada', igual(torres('Norte', '2.1.1', 'P1', 2), ['2/2', '3/1', '3/2']) && !torres('Norte', '2.1.1', 'P1', 3).length &&
+      qa('td.rng').length === 2, [torres('Norte', '2.1.1', 'P1', 2), torres('Norte', '2.1.1', 'P1', 3)]);
+    cola('7/1');
+    confere('uma célula colada em várias vai para todas', igual(torres('Norte', '2.1.1', 'P1', 2), ['7/1']) && igual(torres('Norte', '2.1.1', 'P1', 3), ['7/1']));
+    tecla('Delete');
+    confere('Delete apaga todas as selecionadas', !torres('Norte', '2.1.1', 'P1', 2).length && !torres('Norte', '2.1.1', 'P1', 3).length);
+    celula('2.1.1', 'P1', 7); cola('5/1\t5/2');
+    confere('bloco que passa do fim é recusado', /passa do fim/.test(aviso()) && !torres('Norte', '2.1.1', 'P1', 6).length, aviso());
+    celula('2.1.1', 'P1', 2);
+    D.body.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true }));
+    confere('Shift+seta para baixo estende a seleção', qa('td.rng').length === 2 && $('namebox').textContent === '2L × 1C', $('namebox').textContent);
+    cola('chuva');
+    confere('se uma célula não aceita, nada é colado', /Não colei/.test(aviso()) && !torres('Norte', '2.1.1', 'P1', 1).length, aviso());
+    var ini = celula('2.1.1', 'P1', 4)(), fimTd = q('td[data-r="' + ini.dataset.r + '"][data-c="6"]');
+    fimTd.dispatchEvent(new W.MouseEvent('mouseover', { bubbles: true, buttons: 1 }));
+    D.dispatchEvent(new W.MouseEvent('mouseup', { bubbles: true }));
+    confere('arrastar com o mouse seleciona a faixa', qa('td.rng').length === 3);
+    copia();
+    confere('a borda tracejada cobre o bloco copiado', !!q('.marca-copia') && Math.abs(q('.marca-copia').getBoundingClientRect().right - fimTd.getBoundingClientRect().right) < 2);
+    tecla('Escape');
+    D.body.dispatchEvent(new W.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    confere('seta sem Shift volta a uma célula', !qa('td.rng').length && !!$('p-t'));
   });
 
   await parte('revisão e elaborado', function () {
