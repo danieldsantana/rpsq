@@ -314,6 +314,67 @@ var Painel = (function () {
     redesenhaTudo();
   }
 
+  // ---------- copiar e colar (Ctrl+C / Ctrl+V; pedido do usuário em 24/11/2026) ----------
+  // Copiar leva o texto da célula para a área de transferência (dá para colar no Excel ou numa mensagem).
+  // Colar substitui as torres da célula selecionada, como no Excel; o comentário fica. Aceita também texto
+  // de fora, desde que seja só torres e intervalos do trecho. Na coluna ENCARREGADO, copia e cola o nome.
+  var copiado = null; // { trecho, texto, torres }: a última célula copiada no app, para colar exatamente igual
+  function celulaParaCopiar() {
+    var E = App.E;
+    if (E.canteiro === App.TODOS) {
+      if (!E.ssel) return null;
+      var p = E.ssel.split('|'), a = App.ativ(+p[1]);
+      return { a: a, torres: App.cel(+p[0], a.id, p[2], +p[3]).torres };
+    }
+    var s = sel();
+    if (!s) return null;
+    if (s.col === 0) return { a: s.a, nome: App.encarregado(s.c, s.a.id, s.tipo) };
+    return { a: s.a, torres: App.cel(s.c, s.a.id, s.tipo, s.dia).torres };
+  }
+  function copiar(ev) {
+    var x = celulaParaCopiar();
+    if (!x) return;
+    var texto = x.nome !== undefined ? x.nome : App.regras().formatar(x.torres, x.a.unidade);
+    ev.clipboardData.setData('text/plain', texto);
+    ev.preventDefault();
+    copiado = x.nome !== undefined ? null : { trecho: App.E.trecho.id, texto: texto, torres: x.torres.slice() };
+    App.toast(texto ? 'Copiado: ' + texto : 'Copiada uma célula vazia.');
+  }
+  function colar(ev) {
+    var s = sel();
+    if (!s) return;
+    ev.preventDefault();
+    if (!App.podeEditar()) { App.toast(App.motivoSoLeitura()); return; }
+    var texto = String(ev.clipboardData.getData('text/plain') || '').replace(/\r/g, '');
+    if (s.col === 0) {
+      var nome = texto.split('\n')[0].trim();
+      if (!nome) return;
+      App.gravarEncarregado(s.c, s.a.id, s.tipo, nome);
+      hist.quando = 0; redesenhaTudo();
+      App.toast('Encarregado colado: ' + nome);
+      return;
+    }
+    var r = App.regras(), lista, trecho = App.E.trecho.id;
+    if (copiado && copiado.trecho === trecho && copiado.texto === texto) lista = copiado.torres.slice();
+    else {
+      if (!texto.trim()) return;
+      // do Excel vem com tabulação e quebra de linha entre as células
+      var lido = r.ler(texto.replace(/[\t\n]+/g, ', '), s.a.unidade);
+      if (lido.invalidas.length) { App.toast('Não colei: torres que não existem no trecho ' + trecho + ': ' + lido.invalidas.join(', ') + '.'); return; }
+      if (lido.resto) { App.toast('Não colei: "' + lido.resto + '" não é torre nem intervalo.'); return; }
+      lista = lido.codigos;
+    }
+    var comPartes = lista.filter(function (t) { return Regras.separa(t).partes; });
+    if (comPartes.length && !porPartes(s.a)) { App.toast('Não colei: esta atividade não é lançada por pés ou estais.'); return; }
+    if (soEstaiadas(s.a)) {
+      var auto = lista.filter(function (t) { return r.familia(t) !== 'E'; }).map(function (t) { return Regras.separa(t).torre; });
+      if (auto.length) { App.toast('Não colei: esta atividade é só de torres estaiadas, e ' + auto.join(', ') + (auto.length > 1 ? ' são autoportantes.' : ' é autoportante.')); return; }
+    }
+    App.gravarCelula(s.c, s.a.id, s.tipo, s.dia, { torres: r.ordenar(lista) });
+    hist.quando = 0; redesenhaTudo();
+    App.toast(lista.length ? 'Colado: ' + r.formatar(lista, s.a.unidade) : 'Colada uma célula vazia: as torres foram apagadas.');
+  }
+
   // ---------- Adicionar atividade (cascata Grupo > Tópico > Atividade) ----------
   // O grupo é o primeiro número do código; os nomes vêm do nome do tópico ("GRUPO - TÓPICO").
   function partes(a) {
@@ -423,5 +484,5 @@ var Painel = (function () {
     else if (t.id === 'p-enc') { ev.preventDefault(); salvar(); redesenhaTudo(); Planilha.move(1, 0); }
   });
 
-  return { desenhar: desenhar, desenharAdd: desenharAdd, salvar: salvar, foco: foco, apagar: apagar, clique: clique };
+  return { desenhar: desenhar, desenharAdd: desenharAdd, salvar: salvar, foco: foco, apagar: apagar, clique: clique, copiar: copiar, colar: colar };
 })();

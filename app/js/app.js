@@ -408,6 +408,17 @@ var App = (function () {
     }
   });
 
+  // Ctrl+C / Ctrl+V na planilha (fora dos campos, e sem texto marcado com o mouse)
+  function ehDaPlanilha(ev) {
+    var t = ev.target;
+    if (E.tela !== 'planilha' || !E.semana) return false;
+    if (t && t.matches && t.matches('input,textarea,select')) return false;
+    var marcado = window.getSelection && String(window.getSelection());
+    return !marcado;
+  }
+  document.addEventListener('copy', function (ev) { if (ehDaPlanilha(ev)) Painel.copiar(ev); });
+  document.addEventListener('paste', function (ev) { if (ehDaPlanilha(ev)) { Painel.salvar(); Painel.colar(ev); } });
+
   // ---------- entrada (login) ----------
   function mostraEntrada(msg) {
     document.body.classList.add('sem-login');

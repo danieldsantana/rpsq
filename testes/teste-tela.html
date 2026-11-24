@@ -297,6 +297,50 @@ document.getElementById('app').addEventListener('load', async function () {
     muda('#f-cant', String(cantId('Norte')));
   });
 
+  await parte('copiar e colar', function () {
+    function copia() {
+      var dt = new W.DataTransfer();
+      D.body.dispatchEvent(new W.ClipboardEvent('copy', { clipboardData: dt, bubbles: true, cancelable: true }));
+      return dt.getData('text/plain');
+    }
+    function cola(texto) {
+      var dt = new W.DataTransfer(); dt.setData('text/plain', texto);
+      D.body.dispatchEvent(new W.ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    }
+    function aviso() { return $('toast').textContent; }
+    celula('2.1.1', 'P1', 1);
+    confere('Ctrl+C copia o texto da célula', copia() === '2/2 a 3/2', aviso());
+    var td = celula('2.1.1', 'P1', 3);
+    cola('2/2 a 3/2');
+    confere('Ctrl+V cola as mesmas torres', igual(torres('Norte', '2.1.1', 'P1', 2), ['2/2', '3/1', '3/2']) && td().textContent === '2/2 a 3/2', torres('Norte', '2.1.1', 'P1', 2));
+    cola('5/1 a 5/2\t6/1\r\n');
+    confere('texto de fora (do Excel) substitui as torres', igual(torres('Norte', '2.1.1', 'P1', 2), ['5/1', '5/2', '6/1']), torres('Norte', '2.1.1', 'P1', 2));
+    cola('chuva');
+    confere('texto que não é torre é recusado', /Não colei/.test(aviso()) && igual(torres('Norte', '2.1.1', 'P1', 2), ['5/1', '5/2', '6/1']), aviso());
+    cola('99/9');
+    confere('torre inexistente é recusada', /não existem no trecho X1: 99\/9/.test(aviso()), aviso());
+    cola('3/2 (Pés A e B)');
+    confere('pés colam na atividade por pés', igual(torres('Norte', '2.1.1', 'P1', 2), ['3/2:AB']), torres('Norte', '2.1.1', 'P1', 2));
+    tecla('Delete');
+    celula('3.1.2', 'P1', 3);
+    cola('3/2 (Pés A e B)');
+    confere('pés não colam em atividade sem partes', /não é lançada por pés/.test(aviso()) && !torres('Norte', '3.1.2', 'P1', 2).length, aviso());
+    celula('2.1.1', 'P1', 0);
+    var nome = copia();
+    cola('ENCARREGADO Z');
+    confere('coluna ENCARREGADO: copia e cola o nome', nome === 'ENCARREGADO A' && App.encarregado(cantId('Norte'), ativ('X1', '2.1.1').id, 'P1') === 'ENCARREGADO Z');
+    cola(nome);
+    $('cm') && ($('cm').value = '');
+    muda('#f-cant', 'todos');
+    mouse(q('td.c[data-sk="' + cantId('Sul') + '|' + ativ('X1', '2.1.1').id + '|P1|0"]'));
+    confere('no consolidado também copia', copia() === '3/1, 3/2, 10/1', aviso());
+    muda('#f-cant', String(cantId('Norte')));
+    App.E.usuario.papel = 'consulta'; Dados.definirPapel('consulta'); App.render();
+    celula('2.1.1', 'P1', 3); cola('5/1');
+    confere('papel de consulta não cola', !torres('Norte', '2.1.1', 'P1', 2).length);
+    App.E.usuario.papel = 'admin'; Dados.definirPapel('admin'); App.render();
+  });
+
   await parte('revisão e elaborado', function () {
     muda('#f-rev', '1');
   });
